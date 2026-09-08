@@ -1,0 +1,239 @@
+# FraudLens Roadmap
+
+## Overview
+
+FraudLens will be developed incrementally.
+
+The goal is to reach a functioning MVP before adding production infrastructure.
+
+---
+
+# Phase 0 — Foundation
+
+### Objective
+
+Create the project foundation.
+
+### Deliverables
+
+* repository structure;
+* AGENTS.md;
+* documentation;
+* Python environment;
+* configuration;
+* PostgreSQL connection;
+* testing foundation.
+
+### Exit Criteria
+
+A new developer can clone the repository and understand how the project is structured.
+
+---
+
+# Phase 1 — Dataset and Ingestion
+
+### Objective
+
+Establish a trustworthy source dataset.
+
+### Deliverables
+
+* dataset selected;
+* license documented;
+* source documented;
+* raw data stored;
+* ingestion script;
+* schema validation;
+* data profiling.
+
+### Exit Criteria
+
+The dataset can be reproducibly loaded and validated.
+
+---
+
+# Phase 2 — Data Modeling
+
+### Objective
+
+Create the analytical data foundation.
+
+### Deliverables
+
+* PostgreSQL schema;
+* staging tables;
+* dbt models;
+* analytical marts;
+* data quality tests;
+* data dictionary.
+
+### Exit Criteria
+
+Transaction data can be queried through clean analytical models.
+
+---
+
+# Phase 3 — Behavioral Features
+
+### Objective
+
+Capture transaction behavior and anomalies.
+
+### Deliverables
+
+* velocity features;
+* customer behavior;
+* amount anomalies;
+* device behavior;
+* geographic behavior;
+* merchant behavior.
+
+### Exit Criteria
+
+Feature generation is reproducible and leakage-safe.
+
+---
+
+# Phase 4 — Machine Learning
+
+### Objective
+
+Develop and evaluate fraud models.
+
+### Deliverables
+
+* baseline model;
+* Random Forest;
+* XGBoost;
+* class imbalance strategy;
+* temporal evaluation;
+* PR-AUC;
+* precision/recall;
+* Precision@K;
+* Recall@K.
+
+### Exit Criteria
+
+A defensible model selection decision can be made.
+
+---
+
+# Phase 5 — Risk Intelligence
+
+### Objective
+
+Turn predictions into operational risk decisions.
+
+### Deliverables
+
+* risk score;
+* risk levels;
+* rules engine;
+* investigation queue;
+* SHAP explanations;
+* threshold analysis.
+
+### Exit Criteria
+
+A transaction can be ranked and explained.
+
+---
+
+# Phase 6 — API
+
+### Objective
+
+Make risk scoring programmatically accessible.
+
+### Deliverables
+
+* FastAPI;
+* `/score-transaction`;
+* `/health`;
+* request validation;
+* response schemas;
+* API tests.
+
+### Exit Criteria
+
+A transaction can be submitted to the API and receive a validated risk response.
+
+---
+
+# Phase 7 — Business Intelligence
+
+### Objective
+
+Build a decision-oriented dashboard.
+
+### Deliverables
+
+* executive overview;
+* risk monitoring;
+* investigation queue;
+* fraud analysis;
+* model performance.
+
+### Exit Criteria
+
+A stakeholder can use the dashboard to understand current risk patterns.
+
+---
+
+# Phase 8 — Production Engineering
+
+### Objective
+
+Improve reliability and reproducibility.
+
+### Deliverables
+
+* Docker;
+* CI;
+* automated tests;
+* model artifact management;
+* logging;
+* configuration management.
+
+### Exit Criteria
+
+The system can be built and tested automatically.
+
+---
+
+# Phase 9 — Cloud
+
+### Objective
+
+Deploy the system to a cloud environment if justified.
+
+Potential components:
+
+* AWS;
+* Terraform;
+* managed PostgreSQL;
+* container deployment.
+
+### Exit Criteria
+
+The deployed system is reproducible and documented.
+
+---
+
+# Phase 10 — Advanced Extensions
+
+Potential future work:
+
+* streaming transactions;
+* Kafka;
+* Spark;
+* Airflow;
+* real-time feature computation;
+* model monitoring;
+* drift detection;
+* graph-based fraud detection;
+* analyst feedback loops.
+
+These are optional.
+
+The project is already considered successful without them if the core platform is robust.
