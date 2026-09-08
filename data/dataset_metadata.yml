@@ -1,0 +1,131 @@
+dataset:
+  name: "Nigerian Financial Transactions and Fraud Detection Dataset"
+  provider: "Electric Sheep Africa"
+  source_url: "https://huggingface.co/datasets/electricsheepafrica/Nigerian-Financial-Transactions-and-Fraud-Detection-Dataset"
+  license: "other (non-standard; requires manual review)"
+  version: "V1 (main dataset)"
+  downloaded_at: "2026-09-08"
+  file_name: "V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv"
+  file_size_mb: 924.0
+  sha256: "ed7753fbd7da6d775ce1cd0a339c15abdcc304dae6f668643d15f7e9427cbe09"
+  row_count: 5000000
+  column_count: 21
+  fraud_count: 179553
+  fraud_rate: 0.035911
+  type: "synthetic"
+
+fields:
+  core:
+    - transaction_id
+    - timestamp
+    - sender_account
+    - receiver_account
+    - amount_ngn
+    - transaction_type
+    - merchant_category
+    - location
+    - device_used
+    - payment_channel
+    - ip_address
+    - device_hash
+  labels:
+    - is_fraud
+    - fraud_type
+  precomputed:
+    - time_since_last_transaction
+    - spending_deviation_score
+    - velocity_score
+    - geo_anomaly_score
+    - new_device_transaction
+  context:
+    - bvn_linked
+    - sender_persona
+
+validation_status:
+  row_count: "VERIFIED"
+  column_count: "VERIFIED"
+  fraud_rate: "VERIFIED"
+  timestamps: "VERIFIED (parseable, microsecond precision)"
+  duplicates: "NONE FOUND"
+  data_quality: "CLEAN (no nulls except time_since_last_transaction)"
+
+critical_findings:
+  - "new_device_transaction is a LEAKAGE feature: 100% of fraud cases have it=True, 0% of legitimate cases"
+  - "time_since_last_transaction is BROKEN: 41% negative values, correlation with actual time diff is 0.23"
+  - "velocity_score has NO PREDICTIVE SIGNAL: uniformly distributed 1-20 with identical fraud rates"
+  - "geo_anomaly_score has NO PREDICTIVE SIGNAL: uniform distribution, identical fraud rates"
+  - "spending_deviation_score has WEAK SIGNAL: nearly uniform fraud rate across bins"
+  - "Fraud rates are suspiciously uniform across all categorical dimensions (~3.59%)"
+  - "V1 has 21 columns (not 44 as initially estimated); V2 has 45 columns"
+
+leakage_features:
+  exclude_from_model:
+    - new_device_transaction  # 100% fraud correlation
+  broken_features:
+    - time_since_last_transaction  # 41% negative, doesn't match actual
+  no_signal_features:
+    - velocity_score  # uniform distribution, no fraud rate variation
+    - geo_anomaly_score  # uniform distribution, no fraud rate variation
+  weak_signal_features:
+    - spending_deviation_score  # very weak signal
+
+identifier_cardinality:
+  transaction_id: {unique: 5000000, pct: 100.0}
+  sender_account: {unique: 896463, pct: 17.93, avg_txns_per: 5.6}
+  receiver_account: {unique: 896589, pct: 17.93, avg_txns_per: 5.6}
+  device_hash: {unique: 3835723, pct: 76.71, avg_txns_per: 1.3}
+  ip_address: {unique: 362362, pct: 7.25, avg_txns_per: 13.8}
+  location: {unique: 10, pct: 0.0}
+  merchant_category: {unique: 21, pct: 0.0}
+  payment_channel: {unique: 4, pct: 0.0}
+  device_used: {unique: 4, pct: 0.0}
+  transaction_type: {unique: 4, pct: 0.0}
+  sender_persona: {unique: 3, pct: 0.0}
+
+customer_distribution:
+  max_txns_per_customer: 20
+  median_txns_per_customer: 5
+  mean_txns_per_customer: 5.6
+
+selection:
+  status: "primary (conditional on license verification)"
+  rationale: >
+    Dataset provides core transaction structure with timestamps, accounts,
+    and fraud labels. However, multiple pre-computed features are broken
+    or leak the target variable. Must compute features from raw fields only.
+
+limitations:
+  - "Synthetic data with suspiciously uniform fraud rates"
+  - "License is non-standard ('other') — requires manual review"
+  - "new_device_transaction is a leakage feature — must exclude"
+  - "time_since_last_transaction is broken — must recompute"
+  - "velocity_score and geo_anomaly_score have no predictive signal"
+  - "Max 20 transactions per customer limits behavioral feature depth"
+  - "No lat/long coordinates — cannot compute geographic distance features"
+  - "Fraud rates nearly identical across all dimensions — weak signal in context features"
+  - "V1 has only 21 columns; V2 (45 cols) has additional pre-computed features"
+
+temporal_leakage_notes:
+  safe_features:
+    - timestamp
+    - amount_ngn
+    - transaction_type
+    - merchant_category
+    - location
+    - device_used
+    - payment_channel
+    - ip_address
+    - device_hash
+    - bvn_linked
+    - sender_persona
+  exclude_features:
+    - new_device_transaction  # LEAKAGE
+    - time_since_last_transaction  # BROKEN
+    - velocity_score  # NO SIGNAL
+    - geo_anomaly_score  # NO SIGNAL
+    - spending_deviation_score  # WEAK SIGNAL
+  mitigation: >
+    Compute all behavioral features from raw transaction data using only
+    historical information. Do not use any pre-computed features directly.
+    The raw fields (timestamp, sender_account, amount_ngn, etc.) are sufficient
+    for feature engineering.
