@@ -1,0 +1,6 @@
+transaction_id,timestamp,sender_account,receiver_account,transaction_type,merchant_category,location,device_used,is_fraud,fraud_type,time_since_last_transaction,spending_deviation_score,velocity_score,geo_anomaly_score,payment_channel,ip_address,device_hash,amount_ngn,bvn_linked,new_device_transaction,sender_persona
+T100000,2023-08-27 09:03:17.516168,9899691027,5792850510,withdrawal,Data Subscription (Airtel),Lagos,mobile,False,,4.12,-0.21,3,0.22,Bank Transfer,41.58.183.79,D8536477,1889724.49,True,False,Trader
+T100001,2023-08-25 14:11:12.606711,2194178774,7275770518,deposit,Paystack Payment,Aba,atm,False,,7.83,-0.14,7,0.96,USSD,102.89.45.175,D2622631,833885.14,True,True,Student
+T100002,2023-05-19 09:30:37.742963,4193666484,7538320427,transfer,ATM Withdrawal,Ibadan,pos,True,Account Takeover,2158.90,-1.78,20,0.89,Card,41.58.151.43,D4823498,13860533.88,True,True,Trader
+T100003,2023-10-28 07:26:44.195112,5477061872,3916114882,withdrawal,Konga Order,Benin City,web,False,,120.45,0.35,12,0.45,Mobile App,105.112.143.74,D9569972,45231.90,False,False,Salary Earner
+T100004,2023-09-16 17:58:14.700162,6762768688,2817535746,payment,SportyBet Deposit,Enugu,mobile,False,,89.12,-0.56,8,0.71,Bank Transfer,197.210.155.144,D7055570,125112.56,True,True,Student
