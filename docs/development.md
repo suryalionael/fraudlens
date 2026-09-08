@@ -61,19 +61,41 @@ Database configuration must be documented separately from application logic.
 
 ## 5. Running the Project
 
-The exact commands will be added as implementation progresses.
+### Data Ingestion (Phase 1 — Implemented)
 
-Expected workflows:
+```bash
+# Download the dataset (see data/README.md for details)
+# Place CSV in data/raw/
+
+# Set database connection
+export DATABASE_URL=postgresql://localhost:5432/fraudlens
+
+# Run full ingestion
+PYTHONPATH=src python -m fraudlens.ingestion \
+  --input data/raw/V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv
+
+# Dry run (validate schema only)
+PYTHONPATH=src python -m fraudlens.ingestion \
+  --input data/raw/V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv \
+  --dry-run
+```
+
+### Tests
+
+```bash
+PYTHONPATH=src python -m pytest tests/ -v
+```
+
+### Expected Workflow
 
 ```text
-ingest data
-run validation
-run dbt
-generate features
-train model
-evaluate model
-run risk scoring
-run API
+ingest data          ← Phase 1 (implemented)
+run validation       ← Phase 1 (implemented)
+run dbt              ← Phase 2 (not started)
+generate features    ← Phase 3 (not started)
+train model          ← Phase 4 (not started)
+run risk scoring     ← Phase 5 (not started)
+run API              ← Phase 6 (not started)
 ```
 
 ---
