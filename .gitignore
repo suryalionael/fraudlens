@@ -1,6 +1,7 @@
 # Raw data (too large for Git)
 data/raw/
 *.csv
+!tests/fixtures/*.csv
 *.parquet
 *.zip
 *.gz

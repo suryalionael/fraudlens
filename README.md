@@ -209,7 +209,7 @@ Current stage:
 | --- | --- |
 | Phase 0 — Foundation | COMPLETE |
 | Phase 0 — Dataset Validation | COMPLETE |
-| Phase 1 — Ingestion | NOT STARTED |
+| Phase 1 — Ingestion | COMPLETE |
 | Phase 2 — Data Modeling | NOT STARTED |
 | Phase 3 — Feature Engineering | NOT STARTED |
 | Phase 4 — Modeling | NOT STARTED |
