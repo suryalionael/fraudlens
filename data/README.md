@@ -66,6 +66,26 @@ License must be verified before any public distribution.
 
 The FraudLens project source code is MIT licensed (see `LICENSE`).
 
+## Ingestion
+
+Once the CSV is placed in `data/raw/`, run:
+
+```bash
+export DATABASE_URL=postgresql://localhost:5432/fraudlens
+
+PYTHONPATH=src python -m fraudlens.ingestion \
+  --input data/raw/V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv
+```
+
+This will:
+1. Validate the source schema (21 columns)
+2. Create `raw.transactions` and `raw.ingestion_runs` tables
+3. Load 5,000,000 rows using PostgreSQL COPY (~75 seconds)
+4. Record ingestion metadata (SHA-256, row count, fraud rate)
+5. Verify loaded row count matches source
+
+Idempotency: re-running truncates and reloads by default. Use `--no-replace` to refuse if data already exists.
+
 ## Important
 
 * Do not commit large datasets to Git.
