@@ -2,148 +2,134 @@
 
 ## 1. Prerequisites
 
-The project is expected to use:
-
-* Python
-* PostgreSQL
+* Python 3.12+
+* PostgreSQL 16+
 * Git
-* dbt
-
-Additional tooling will be introduced as required.
+* Docker (optional, for containerized development)
 
 ---
 
-## 2. Environment
+## 2. Quick Start
 
-Create a virtual environment:
+### Option A: Docker (recommended)
 
 ```bash
-python -m venv .venv
+# Clone and configure
+cp .env.example .env
+
+# Start all services
+make docker-up
+
+# API available at http://localhost:8000
+# Dashboard available at http://localhost:8501
 ```
 
-Activate it according to the operating system.
+### Option B: Local development
 
-Install project dependencies using the project's configured package manager.
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+make install
+
+# Configure database
+cp .env.example .env
+# Edit .env with your PostgreSQL credentials
+
+# Run tests
+make test
+
+# Run API
+make api
+
+# Run dashboard (separate terminal)
+make dashboard
+```
 
 ---
 
 ## 3. Configuration
 
-Use environment variables for configuration.
+All configuration uses environment variables:
 
-Example:
+| Variable | Default | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | — | PostgreSQL connection URL |
+| `POSTGRES_HOST` | localhost | Database host |
+| `POSTGRES_PORT` | 5432 | Database port |
+| `POSTGRES_DB` | fraudlens | Database name |
+| `POSTGRES_USER` | — | Database user |
+| `POSTGRES_PASSWORD` | — | Database password |
+| `FRAUDLENS_MODEL_PATH` | models/random_forest.artifact.pkl | Model artifact path |
+| `FRAUDLENS_MODEL_DIR` | models/ | Model metadata directory |
+| `FRAUDLENS_LOG_LEVEL` | INFO | Logging level |
 
-```text
-DATABASE_URL=
-MODEL_PATH=
-ENVIRONMENT=
-```
-
-Never commit secrets.
-
-Provide:
-
-```text
-.env.example
-```
-
-with placeholder values.
+Never commit `.env` files. Use `.env.example` as a template.
 
 ---
 
-## 4. Local Database
+## 4. Project Workflow
 
-The development environment should provide a local PostgreSQL database.
-
-Database configuration must be documented separately from application logic.
+```text
+1. Ingest data       → python -m fraudlens.ingestion --input <csv>
+2. Run dbt           → cd dbt/fraudlens && dbt build
+3. Train model       → python -c "from fraudlens.models.serving import ..."
+4. Score transactions → python -c "from fraudlens.risk.batch import ..."
+5. Run API           → make api
+6. Run dashboard     → make dashboard
+```
 
 ---
 
-## 5. Running the Project
-
-### Data Ingestion (Phase 1 — Implemented)
+## 5. Makefile Commands
 
 ```bash
-# Download the dataset (see data/README.md for details)
-# Place CSV in data/raw/
-
-# Set database connection
-export DATABASE_URL=postgresql://localhost:5432/fraudlens
-
-# Run full ingestion
-PYTHONPATH=src python -m fraudlens.ingestion \
-  --input data/raw/V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv
-
-# Dry run (validate schema only)
-PYTHONPATH=src python -m fraudlens.ingestion \
-  --input data/raw/V1-nigerian-financial-transactions-and-fraud-detection-dataset.csv \
-  --dry-run
-```
-
-### Tests
-
-```bash
-PYTHONPATH=src python -m pytest tests/ -v
-```
-
-### Expected Workflow
-
-```text
-ingest data          ← Phase 1 (implemented)
-run validation       ← Phase 1 (implemented)
-run dbt              ← Phase 2 (implemented)
-generate features    ← Phase 3 (not started)
-train model          ← Phase 4 (not started)
-run risk scoring     ← Phase 5 (not started)
-run API              ← Phase 6 (not started)
+make help           # Show all commands
+make install        # Install dependencies
+make test           # Run Python tests
+make test-fast      # Run tests (quiet)
+make lint           # Check code style
+make format         # Auto-format code
+make typecheck      # Run type checks
+make dbt-build      # Build dbt models
+make dbt-test       # Run dbt tests
+make api            # Start API server
+make dashboard      # Start Streamlit dashboard
+make docker-up      # Start Docker services
+make docker-down    # Stop Docker services
 ```
 
 ---
 
 ## 6. Code Style
 
-Python code should prioritize:
-
-* readability;
-* explicit typing where useful;
-* small functions;
-* meaningful names;
-* modularity;
-* testability.
-
-Avoid unnecessary abstraction.
+* Readability over cleverness
+* Explicit typing where useful
+* Small, focused functions
+* Meaningful names
+* No unnecessary abstraction
 
 ---
 
-## 7. Notebooks
-
-Notebooks should be used for exploration and analysis.
-
-Reusable logic should eventually move into:
-
-```text
-src/fraudlens/
-```
-
----
-
-## 8. Git Workflow
-
-Use small, focused commits.
+## 7. Git Workflow
 
 Before committing:
 
 ```text
 tests pass
 code is formatted
-no secrets are present
-documentation is updated where needed
+no secrets present
+documentation updated
 ```
 
----
+Use focused commit messages:
 
-## 9. Local Development Principle
-
-The local development environment should reproduce the project's documented workflow as closely as practical.
-
-Avoid undocumented manual steps.
+```text
+feat: add feature
+fix: resolve bug
+test: add coverage
+docs: update documentation
+chore: maintenance
+```
