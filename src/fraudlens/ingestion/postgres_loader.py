@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 import psycopg2
-from psycopg2 import sql
 
 from fraudlens.ingestion.schema import EXPECTED_COLUMNS
 
