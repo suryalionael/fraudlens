@@ -472,20 +472,27 @@ Deploy the system to a cloud environment if justified.
 
 ---
 
-# Phase 10 — Advanced Extensions
+# Phase 10 — Real-Time Decisioning
 
-Potential future work:
+### Status
 
-* streaming transactions;
-* Kafka;
-* Spark;
-* Airflow;
-* real-time feature computation;
-* model monitoring;
-* drift detection;
-* graph-based fraud detection;
-* analyst feedback loops.
+✅ COMPLETE
 
-These are optional.
+### Objective
 
-The project is already considered successful without them if the core platform is robust.
+Turn FraudLens from batch-oriented to real-time synchronous risk decisioning.
+
+### Implementation
+
+* Hardened request schema: `extra="forbid"`, timestamp validation, forbidden field rejection
+* Historical context service: `risk/historical.py` — leakage-safe PostgreSQL queries
+* Real-time scoring service: `risk/scoring.py` — full pipeline orchestration
+* Persistence: results saved to `risk.transaction_scores` before response
+* Idempotency: duplicate `transaction_id` returns existing result
+* Database indexes: optimized for real-time historical queries
+* 20 new tests (temporal leakage, feature parity, validation, idempotency)
+* 139 total Python tests passing
+
+### Exit Criteria
+
+✅ A transaction can be scored, explained, persisted, and investigated in real-time.

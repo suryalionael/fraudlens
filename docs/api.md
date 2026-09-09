@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-The API provides programmatic access to FraudLens risk scoring.
+Real-time synchronous fraud risk scoring for financial transactions.
 
-Built with FastAPI. Uses the trained ML model (not heuristics) for fraud probability estimation.
+Built with FastAPI. Uses trained ML model for fraud probability, SHAP for explanations, risk engine for decisions, and PostgreSQL for persistence.
 
 ---
 
@@ -12,47 +12,75 @@ Built with FastAPI. Uses the trained ML model (not heuristics) for fraud probabi
 
 ### `POST /score-transaction`
 
-Scores a transaction using the trained ML model and risk engine.
-
-The request must include all behavioral features needed by the model.
+Real-time synchronous scoring of a single transaction.
 
 ### `GET /health`
 
-Returns health status including whether the model is loaded.
+Liveness check — is the process alive?
 
-### `GET /docs`
+### `GET /ready`
 
-Interactive OpenAPI documentation.
+Readiness check — can the API serve requests? (verifies model + database)
 
 ---
 
-## 3. Request Schema
+## 3. Request Schema (`POST /score-transaction`)
+
+Only raw transaction attributes are accepted. Behavioral features are generated server-side from historical context.
 
 ```json
 {
-  "transaction_id": "T123456",
-  "sender_account": "ACC001",
-  "receiver_account": "ACC002",
-  "transaction_type": "transfer",
-  "merchant_category": "electronics",
+  "transaction_id": "TXN-001",
+  "timestamp": "2026-09-09T15:42:31Z",
+  "amount_ngn": 185000.00,
+  "transaction_type": "TRANSFER",
+  "merchant_category": "Electronics",
   "location": "Lagos",
   "device_used": "mobile",
-  "amount_ngn": 50000.00,
-  "payment_channel": "Bank Transfer",
-  "ip_address": "192.168.1.1",
-  "device_hash": "D1234567",
-  "sender_persona": "Trader",
-  "customer_transaction_count_prior": 10,
-  "customer_avg_amount_prior": 45000.0,
-  "amount_zscore": 2.5,
-  "device_first_seen": true,
-  "transactions_last_10m": 5
+  "payment_channel": "mobile_app",
+  "ip_address": "192.168.1.100",
+  "device_hash": "device_abc123",
+  "bvn_linked": true,
+  "sender_persona": "individual",
+  "sender_account": "ACC-12345",
+  "receiver_account": "ACC-98765"
 }
 ```
 
-Required fields: `transaction_id`, `sender_account`, `receiver_account`, `transaction_type`, `merchant_category`, `location`, `device_used`, `amount_ngn`, `payment_channel`, `ip_address`, `device_hash`, `sender_persona`.
+### Required Fields
 
-Optional behavioral features default to 0 if not provided.
+| Field | Type | Validation |
+| --- | --- | --- |
+| `transaction_id` | string | 1-128 chars, not whitespace |
+| `timestamp` | string | ISO 8601, timezone-aware, not future |
+| `amount_ngn` | float | > 0, finite, not NaN |
+| `transaction_type` | string | 1-50 chars |
+| `merchant_category` | string | 1-100 chars |
+| `location` | string | 1-100 chars |
+| `device_used` | string | 1-50 chars |
+| `payment_channel` | string | 1-50 chars |
+| `ip_address` | string | 1-45 chars |
+| `device_hash` | string | 1-256 chars |
+| `bvn_linked` | bool | JSON boolean |
+| `sender_persona` | string | 1-50 chars |
+| `sender_account` | string | 1-128 chars |
+| `receiver_account` | string | 1-128 chars |
+
+### Forbidden Fields
+
+The following fields are rejected with 422:
+
+```text
+new_device_transaction
+time_since_last_transaction
+velocity_score
+geo_anomaly_score
+spending_deviation_score
+```
+
+### Unknown Fields
+
+Unknown fields are rejected with 422 (`extra="forbid"`).
 
 ---
 
@@ -60,88 +88,104 @@ Optional behavioral features default to 0 if not provided.
 
 ```json
 {
-  "transaction_id": "T123456",
-  "fraud_probability": 0.85,
-  "risk_score": 78.5,
+  "transaction_id": "TXN-001",
+  "fraud_probability": 0.8734,
+  "risk_score": 84,
   "risk_level": "high",
   "recommended_action": "review",
   "risk_factors": [
-    "Transaction from a new device",
-    "Feature 'amount_zscore' increases risk (contribution: 0.2341)"
+    {
+      "feature": "amount_zscore",
+      "impact": 0.31,
+      "direction": "HIGHER_RISK"
+    }
   ],
   "model_version": "fraudlens-rf-v001",
   "risk_engine_version": "001",
-  "scored_at": "2024-01-01T00:00:00"
+  "scored_at": "2026-09-09T15:42:32Z"
 }
 ```
 
-`fraud_probability` comes from the actual trained ML model.
-`risk_score` combines ML probability (70%) with rule engine (30%).
-`risk_factors` combine rule-based signals with SHAP explanations.
+### Response Fields
+
+| Field | Type | Range |
+| --- | --- | --- |
+| `fraud_probability` | float | 0-1 |
+| `risk_score` | float | 0-100 |
+| `risk_level` | string | low/medium/high/critical |
+| `recommended_action` | string | allow/monitor/review/urgent_review |
 
 ---
 
-## 5. Health Response
+## 5. Error Responses
 
-```json
-{
-  "status": "ok",
-  "version": "0.1.0",
-  "model_loaded": true,
-  "model_version": "fraudlens-rf-v001",
-  "scored_at": "2024-01-01T00:00:00"
-}
-```
+### 422 — Validation Error
 
-`status` is `"ok"` when model is loaded, `"degraded"` when not.
+Missing fields, invalid types, unknown fields, forbidden precomputed features.
 
----
+### 400 — Bad Request
 
-## 6. Error Codes
+Future timestamp, invalid timestamp format.
 
-| Code | Meaning |
-| --- | --- |
-| 422 | Invalid request (validation error) |
-| 503 | Model not loaded (train a model first) |
-| 500 | Internal scoring error |
+### 409 — Conflict
+
+Same transaction_id with different payload (if detected).
+
+### 503 — Scoring Unavailable
+
+Model not loaded or database unreachable.
+
+### 500 — Internal Error
+
+Unexpected failures. Never exposes stack traces or secrets.
 
 ---
 
-## 7. Model Loading
+## 6. Feature Generation
 
-The API loads a trained model artifact at startup from:
+Features are generated server-side using historical context from PostgreSQL:
 
 ```text
-FRAUDLENS_MODEL_PATH env var
-  or
-models/random_forest.artifact.pkl (default)
-```
-
-If no model is found, the API starts in degraded mode (health returns `"degraded"`, scoring returns 503).
-
-To train a model:
-
-```python
-from fraudlens.models.serving import train_and_persist_model
-train_and_persist_model(df, output_dir="models/", model_name="random_forest")
+Incoming Transaction
+        ↓
+Historical Context (PostgreSQL, strict temporal cutoff < T)
+        ↓
+Behavioral Features
+        ↓
+MODEL_FEATURES
+        ↓
+ML Model
+        ↓
+SHAP
+        ↓
+Risk Engine
+        ↓
+Response
 ```
 
 ---
 
-## 8. Explainability
+## 7. Idempotency
 
-Responses include SHAP-based feature explanations showing which features contributed most to the prediction.
+Repeated requests with the same `transaction_id` return the existing scoring result without creating duplicate records.
 
 ---
 
-## 9. API Testing
+## 8. Persistence
 
-Tests cover:
+Every successful scoring result is persisted to `risk.transaction_scores` before the response is returned. The Investigation Queue automatically reflects persisted results.
 
-* valid request with real model
-* missing required fields (422)
-* invalid values (422)
-* model unavailable (503)
-* health endpoint (ok/degraded)
-* OpenAPI schema
-* end-to-end scoring
+---
+
+## 9. Running
+
+```bash
+# Local
+make api
+
+# Docker
+docker compose up api
+
+# Production (ECS)
+# Automatically deployed via GitHub Actions
+```

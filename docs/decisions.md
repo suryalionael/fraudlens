@@ -516,3 +516,38 @@ All AWS infrastructure is managed by Terraform.
 * Requires Terraform knowledge
 * State management needed (S3 backend)
 * Infrastructure changes go through PR review
+
+---
+
+# ADR-022 — Synchronous FastAPI scoring over streaming
+
+## Status
+
+Accepted
+
+## Decision
+
+FraudLens uses synchronous FastAPI scoring for real-time transaction risk decisions rather than introducing Kafka, Kinesis, or Spark Streaming.
+
+## Rationale
+
+* FraudLens processes individual transactions, not high-throughput streams
+* Synchronous scoring provides immediate response to the caller
+* The existing FastAPI service already supports the required flow
+* No operational complexity of streaming infrastructure
+* Portfolio project does not need sub-second latency at scale
+* PostgreSQL provides sufficient persistence for investigation queue
+
+## Alternatives Considered
+
+* Kafka/Kinesis: Adds operational complexity without clear benefit at this scale
+* Lambda: Would require rewriting the application architecture
+* Spark Streaming: Overkill for individual transaction scoring
+* Async background processing: Loses synchronous response guarantee
+
+## Consequences
+
+* Single transaction scored at a time per request
+* Latency depends on database query performance
+* No horizontal scaling beyond ECS task count
+* Simple, auditable, reproducible
