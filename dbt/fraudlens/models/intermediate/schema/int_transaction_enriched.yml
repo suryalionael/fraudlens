@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: int_transaction_enriched
+    description: "Enriched transactions with sender, merchant, location, and device statistics"
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: sender_fraud_rate
+        description: "Historical fraud rate for this sender"
+      - name: merchant_fraud_rate
+        description: "Historical fraud rate for this merchant category"
+      - name: location_fraud_rate
+        description: "Historical fraud rate for this location"
+      - name: device_fraud_rate
+        description: "Historical fraud rate for this device type"
