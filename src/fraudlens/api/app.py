@@ -19,6 +19,7 @@ from fraudlens.features.preparation import (
     MODEL_FEATURES,
     prepare_features_from_transaction,
 )
+from fraudlens.logging_config import configure_logging
 from fraudlens.models.explainer import explain_prediction, format_explanation_for_api
 from fraudlens.models.serving import ModelArtifact, load_model_artifact, predict_probability
 from fraudlens.risk.engine import RiskEngine
@@ -121,6 +122,15 @@ class HealthResponse(BaseModel):
     timestamp: str
 
 
+class ReadyResponse(BaseModel):
+    """Response schema for readiness check."""
+
+    status: str
+    model_loaded: bool
+    database_reachable: bool
+    timestamp: str
+
+
 class ErrorResponse(BaseModel):
     """Error response schema."""
 
@@ -149,6 +159,9 @@ def create_app(
         redoc_url="/redoc",
     )
 
+    # Configure logging
+    configure_logging()
+
     # Load model artifact
     resolved_path = Path(model_path) if model_path else Path(DEFAULT_MODEL_PATH)
     artifact: ModelArtifact | None = None
@@ -170,12 +183,33 @@ def create_app(
 
     @app.get("/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
-        """Health check endpoint."""
+        """Liveness check — is the process alive?"""
         return HealthResponse(
             status="ok" if model_loaded else "degraded",
             version="0.1.0",
             model_loaded=model_loaded,
             model_version=artifact.model_version if artifact else "none",
+            timestamp=datetime.now().isoformat(),
+        )
+
+    @app.get("/ready", response_model=ReadyResponse)
+    async def readiness_check() -> ReadyResponse:
+        """Readiness check — can the API serve requests?"""
+        # Check database connectivity
+        db_reachable = False
+        try:
+            from fraudlens.dashboard.data.connection import get_connection
+            conn = get_connection()
+            conn.close()
+            db_reachable = True
+        except Exception:
+            pass
+
+        ready = model_loaded and db_reachable
+        return ReadyResponse(
+            status="ready" if ready else "not_ready",
+            model_loaded=model_loaded,
+            database_reachable=db_reachable,
             timestamp=datetime.now().isoformat(),
         )
 
