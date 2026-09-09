@@ -1,0 +1,20 @@
+# FraudLens core dependencies
+psycopg2-binary>=2.9
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+pydantic>=2.0
+
+# ML extras
+xgboost>=2.0
+shap>=0.43
+
+# API
+fastapi>=0.104
+uvicorn>=0.24
+
+# Dashboard
+streamlit>=1.28
+
+# Testing
+pytest>=7.4
