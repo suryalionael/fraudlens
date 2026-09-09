@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: int_features_temporal
+    description: "Temporal behavioral features computed from historical transactions only. Velocity features are computed in Python (src/fraudlens/features/) due to performance constraints at 5M row scale."
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_transaction_count_prior
+        description: "Total prior transactions by this sender"
+        data_tests:
+          - not_null
+      - name: customer_avg_amount_prior
+        description: "Average amount of prior transactions by this sender"
+        data_tests:
+          - not_null
+      - name: customer_std_amount_prior
+        description: "Standard deviation of prior transaction amounts"
+        data_tests:
+          - not_null
+      - name: customer_max_amount_prior
+        description: "Maximum amount of prior transactions by this sender"
+        data_tests:
+          - not_null
+      - name: amount_ratio_to_avg
+        description: "Current amount relative to sender's historical average"
+        data_tests:
+          - not_null
+      - name: amount_zscore
+        description: "Amount z-score relative to sender's historical distribution"
+        data_tests:
+          - not_null
+      - name: merchant_transaction_count_prior
+        description: "Prior transactions for this merchant category"
+        data_tests:
+          - not_null
+      - name: merchant_fraud_rate_prior
+        description: "Historical fraud rate for this merchant category"
+        data_tests:
+          - not_null
+      - name: location_transaction_count_prior
+        description: "Prior transactions for this location"
+        data_tests:
+          - not_null
+      - name: location_fraud_rate_prior
+        description: "Historical fraud rate for this location"
+        data_tests:
+          - not_null
+      - name: device_transaction_count_prior
+        description: "Prior transactions by this device"
+        data_tests:
+          - not_null
+      - name: device_first_seen
+        description: "Whether this is the first transaction by this device for this sender"
+        data_tests:
+          - not_null
