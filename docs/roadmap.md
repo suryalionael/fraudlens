@@ -88,6 +88,10 @@ Create the analytical data foundation.
 
 # Phase 3 — Behavioral Features
 
+### Status
+
+✅ COMPLETE
+
 ### Objective
 
 Capture transaction behavior and anomalies.
@@ -101,9 +105,48 @@ Capture transaction behavior and anomalies.
 * geographic behavior;
 * merchant behavior.
 
+### Implementation
+
+* Python module: `src/fraudlens/features/engineering.py`
+* Feature tester: `src/fraudlens/features/tester.py`
+* dbt model: `dbt/fraudlens/models/intermediate/int_features_temporal.sql`
+* 13 Python unit tests (all passing)
+* 14 dbt data tests (all passing)
+
+### Features Implemented
+
+**Temporal Features:**
+- `hour_of_day`, `day_of_week`, `is_weekend`, `month`, `day_of_month`
+
+**Velocity Features (Python):**
+- `transactions_last_10m`, `transactions_last_60m`, `transactions_last_1440m`
+
+**Amount Features:**
+- `amount_ratio_to_avg`, `amount_zscore`, `customer_avg_amount_prior`, `customer_std_amount_prior`, `customer_max_amount_prior`
+
+**Customer Features:**
+- `customer_transaction_count_prior`, `customer_days_active`, `customer_transactions_per_day`
+
+**Device Features:**
+- `device_transaction_count_prior`, `device_first_seen`
+
+**Merchant Features:**
+- `merchant_transaction_count_prior`, `merchant_fraud_rate_prior`
+
+**Location Features:**
+- `location_transaction_count_prior`, `location_fraud_rate_prior`
+
+### Temporal Leakage Prevention
+
+All features are computed using only historical information. For each transaction, features are calculated from transactions that occurred BEFORE the current transaction.
+
+### Performance Note
+
+Velocity features (time-windowed counts) are computed in Python due to PostgreSQL performance constraints at 5M row scale. Cumulative stats are computed in dbt using window functions.
+
 ### Exit Criteria
 
-Feature generation is reproducible and leakage-safe.
+✅ Feature generation is reproducible and leakage-safe.
 
 ---
 

@@ -203,7 +203,7 @@ Future technologies will only be introduced when they solve a demonstrated probl
 
 Current stage:
 
-> **Phase 2 — Data Modeling**
+> **Phase 3 — Behavioral Features**
 
 | Phase | Status |
 | --- | --- |
@@ -211,7 +211,7 @@ Current stage:
 | Phase 0 — Dataset Validation | COMPLETE |
 | Phase 1 — Ingestion | COMPLETE |
 | Phase 2 — Data Modeling | COMPLETE |
-| Phase 3 — Feature Engineering | NOT STARTED |
+| Phase 3 — Feature Engineering | COMPLETE |
 | Phase 4 — Modeling | NOT STARTED |
 | Phase 5 — Risk Engine | NOT STARTED |
 | Phase 6 — API | NOT STARTED |
