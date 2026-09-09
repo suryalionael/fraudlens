@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: fct_transactions_analytics
+    description: "Fact table with enriched transaction analytics"
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: amount_zscore
+        description: "Amount z-score relative to sender's historical average"
+      - name: sender_risk_level
+        description: "Sender risk level based on historical fraud rate"
+        data_tests:
+          - accepted_values:
+              values: ['HIGH', 'MEDIUM', 'LOW']
+      - name: merchant_risk_level
+        description: "Merchant risk level based on historical fraud rate"
+        data_tests:
+          - accepted_values:
+              values: ['HIGH', 'MEDIUM', 'LOW']
+      - name: location_risk_level
+        description: "Location risk level based on historical fraud rate"
+        data_tests:
+          - accepted_values:
+              values: ['HIGH', 'MEDIUM', 'LOW']
+
+  - name: rpt_fraud_summary
+    description: "Fraud summary report by different dimensions"
+    columns:
+      - name: report_type
+        description: "Type of report (BY_TYPE, BY_MERCHANT, BY_LOCATION)"
+        data_tests:
+          - accepted_values:
+              values: ['BY_TYPE', 'BY_MERCHANT', 'BY_LOCATION']
+      - name: category
+        description: "Category name"
+        data_tests:
+          - not_null
+      - name: total_transactions
+        description: "Total number of transactions"
+        data_tests:
+          - not_null
+      - name: fraud_count
+        description: "Number of fraud transactions"
+        data_tests:
+          - not_null
+      - name: fraud_rate
+        description: "Fraud rate percentage"
+        data_tests:
+          - not_null
