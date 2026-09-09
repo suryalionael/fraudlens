@@ -364,7 +364,10 @@ Build a decision-oriented dashboard.
 ### Implementation
 
 * Python module: `src/fraudlens/dashboard/app.py`
-* 2 unit tests (all passing)
+* Data access layer: `src/fraudlens/dashboard/data/` (connection, executive, risk, investigations, fraud)
+* Risk persistence: `src/fraudlens/risk/storage.py`, `src/fraudlens/risk/batch.py`
+* All 5 pages use real PostgreSQL data
+* 2 dashboard tests + 14 data layer tests (all passing)
 * Run with: `python -m fraudlens.dashboard`
 
 ### Dashboard Pages

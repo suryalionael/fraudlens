@@ -334,3 +334,82 @@ A heuristic masquerading as ML output is worse than no model. The trained model 
 * API requires a trained model artifact to be present
 * Health endpoint reports `"degraded"` when no model is loaded
 * Scoring returns 503 when no model is available
+
+---
+
+# ADR-015 — Dashboard analytics query PostgreSQL directly
+
+## Status
+
+Accepted
+
+## Decision
+
+The Streamlit dashboard queries PostgreSQL directly for historical analytics rather than routing through FastAPI.
+
+## Rationale
+
+* Historical analytics (fraud rates, trends, aggregations) are read-heavy analytical queries
+* FastAPI is designed for operational scoring, not analytics
+* PostgreSQL handles analytical queries efficiently with appropriate indexes
+* dbt marts provide pre-aggregated data for common queries
+* Adding an analytics API layer would be unnecessary indirection
+
+## Consequences
+
+* Dashboard requires database connectivity
+* Dashboard data access is isolated in `dashboard/data/` package
+* API remains focused on operational scoring endpoints
+
+---
+
+# ADR-016 — Persist risk scores in PostgreSQL
+
+## Status
+
+Accepted
+
+## Decision
+
+Risk scoring outputs are persisted in `risk.transaction_scores` table in PostgreSQL.
+
+## Rationale
+
+* Risk scores computed during API calls are transient by default
+* Dashboard needs historical risk data for monitoring and investigation
+* PostgreSQL provides reliable storage with query capabilities
+* The `risk.transaction_scores` table is the single source of truth for scored transactions
+
+## Consequences
+
+* Batch scoring populates the table from raw.transactions
+* Dashboard reads from the same table the API could write to
+* Risk persistence is optional — dashboard gracefully handles missing data
+* Upsert semantics allow re-scoring without duplicates
+
+---
+
+# ADR-017 — Dashboard data access layer
+
+## Status
+
+Accepted
+
+## Decision
+
+Dashboard data access is isolated in `dashboard/data/` package with page-specific query modules.
+
+## Rationale
+
+* Keeps SQL queries out of Streamlit rendering code
+* Enables unit testing of query logic without database
+* Provides a clear contract between data and presentation
+* Each page has a dedicated query module with focused responsibilities
+
+## Consequences
+
+* `dashboard/data/connection.py` — shared PostgreSQL connection
+* `dashboard/data/executive.py` — executive overview queries
+* `dashboard/data/risk.py` — risk monitoring queries
+* `dashboard/data/investigations.py` — investigation queue queries
+* `dashboard/data/fraud.py` — fraud analysis queries
