@@ -60,6 +60,7 @@ def _render_executive_overview() -> None:
     import streamlit as st
 
     st.header("Executive Overview")
+    st.caption("Demonstration data — not connected to live pipeline.")
 
     # Generate sample data for demonstration
     np.random.seed(42)
@@ -116,6 +117,7 @@ def _render_risk_monitoring() -> None:
     import streamlit as st
 
     st.header("Risk Monitoring")
+    st.caption("Demonstration data — not connected to live pipeline.")
 
     # Generate sample data
     np.random.seed(42)
@@ -157,6 +159,7 @@ def _render_investigation_queue() -> None:
     import streamlit as st
 
     st.header("Investigation Queue")
+    st.caption("Demonstration data — not connected to live pipeline.")
 
     # Generate sample investigation data
     np.random.seed(42)
@@ -212,6 +215,7 @@ def _render_fraud_analysis() -> None:
     import streamlit as st
 
     st.header("Fraud Analysis")
+    st.caption("Demonstration data — not connected to live pipeline.")
 
     # Generate sample data
     np.random.seed(42)
@@ -256,55 +260,54 @@ def _render_fraud_analysis() -> None:
 
 def _render_model_performance() -> None:
     """Render model performance page."""
+    import json
+    import os
+
     import streamlit as st
 
     st.header("Model Performance")
 
-    # Model comparison
-    st.subheader("Model Comparison")
+    # Try to load real model metadata
+    model_dir = os.environ.get("FRAUDLENS_MODEL_DIR", "models")
+    metadata_files = {
+        "Logistic Regression": os.path.join(model_dir, "logistic_regression.metadata.json"),
+        "Random Forest": os.path.join(model_dir, "random_forest.metadata.json"),
+        "XGBoost": os.path.join(model_dir, "xgboost.metadata.json"),
+    }
 
-    model_data = pd.DataFrame({
-        "model": ["Logistic Regression", "Random Forest", "XGBoost"],
-        "pr_auc": [0.85, 0.92, 0.95],
-        "roc_auc": [0.88, 0.94, 0.97],
-        "precision": [0.78, 0.85, 0.88],
-        "recall": [0.82, 0.88, 0.91],
-        "f1": [0.80, 0.86, 0.89],
-    })
+    real_models = []
+    for model_name, path in metadata_files.items():
+        if os.path.exists(path):
+            with open(path) as f:
+                meta = json.load(f)
+            real_models.append({
+                "model": model_name,
+                **meta.get("evaluation", {}),
+                "model_version": meta.get("model_version", "unknown"),
+                "train_size": meta.get("train_size", 0),
+                "test_size": meta.get("test_size", 0),
+            })
 
-    st.dataframe(model_data, use_container_width=True)
+    if real_models:
+        st.subheader("Trained Model Metrics")
+        st.caption("Metrics from actual model training runs.")
+        model_data = pd.DataFrame(real_models)
+        st.dataframe(model_data, use_container_width=True)
 
-    # Precision@K
-    st.subheader("Precision@K")
-
-    precision_at_k = pd.DataFrame({
-        "K": [100, 500, 1000, 5000],
-        "Logistic Regression": [0.95, 0.88, 0.82, 0.65],
-        "Random Forest": [0.98, 0.92, 0.87, 0.72],
-        "XGBoost": [0.99, 0.94, 0.89, 0.75],
-    })
-
-    st.dataframe(precision_at_k, use_container_width=True)
-
-    # Threshold analysis
-    st.subheader("Threshold Analysis")
-
-    threshold_data = pd.DataFrame({
-        "threshold": np.arange(0.1, 0.9, 0.1),
-        "precision": [0.45, 0.55, 0.65, 0.75, 0.82, 0.88, 0.92, 0.95],
-        "recall": [0.95, 0.90, 0.85, 0.78, 0.70, 0.62, 0.55, 0.48],
-        "f1": [0.61, 0.68, 0.74, 0.76, 0.76, 0.73, 0.69, 0.64],
-    })
-
-    st.line_chart(threshold_data.set_index("threshold"))
-
-    # Confusion matrix
-    st.subheader("Confusion Matrix (Optimal Threshold)")
-
-    cm_data = pd.DataFrame({
-        "": ["Actual Negative", "Actual Positive"],
-        "Predicted Negative": [9500, 180],
-        "Predicted Positive": [140, 180],
-    })
-
-    st.dataframe(cm_data, use_container_width=True)
+        # Show model version info
+        for m in real_models:
+            st.text(f"{m['model']}: {m['model_version']} (train={m['train_size']:,}, test={m['test_size']:,})")
+    else:
+        st.info(
+            "No trained model artifacts found. "
+            "Train a model first: `python -c \"from fraudlens.models.serving import ...\"` "
+            "or set `FRAUDLENS_MODEL_DIR` environment variable."
+        )
+        st.subheader("Example Metrics (Illustrative)")
+        st.caption("These are example values, not actual model results.")
+        model_data = pd.DataFrame({
+            "model": ["Logistic Regression", "Random Forest", "XGBoost"],
+            "pr_auc": ["TBD", "TBD", "TBD"],
+            "roc_auc": ["TBD", "TBD", "TBD"],
+        })
+        st.dataframe(model_data, use_container_width=True)
