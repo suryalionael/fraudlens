@@ -1,246 +1,240 @@
 # FraudLens
 
-## Financial Transaction Risk Intelligence Platform
+**Real-time financial transaction risk scoring with explainable ML, leakage-safe feature engineering, and production AWS deployment.**
 
-> From transaction data to explainable fraud-risk decisions.
-
-FraudLens is a production-oriented financial risk analytics platform that analyzes transaction behavior, generates explainable risk scores, and prioritizes transactions for fraud investigation.
-
-The project is designed to demonstrate the intersection of:
-
-* Data Engineering
-* Analytics Engineering
-* Data Science
-* Machine Learning
-* Risk Analytics
-* Business Intelligence
-* API Development
-* Production Software Engineering
-
-Rather than treating fraud detection as a simple binary classification problem, FraudLens focuses on the operational question:
+FraudLens receives an incoming transaction, validates it, generates behavioral features from historical context using only data available before the transaction timestamp, scores it with a trained ML model, explains the prediction via SHAP, calculates a risk decision combining ML and deterministic rules, persists the result to PostgreSQL, and returns a structured response — all synchronously.
 
 > **Which transactions should a fraud analyst investigate, and why?**
 
 ---
 
-## Problem
+## Architecture
 
-Financial institutions process large volumes of transactions every day. Only a small fraction may be fraudulent, creating a highly imbalanced classification problem.
-
-A system that simply maximizes classification accuracy can be misleading.
-
-For example, if 99.5% of transactions are legitimate, a model that predicts every transaction as legitimate could achieve 99.5% accuracy while detecting zero fraud.
-
-FraudLens therefore evaluates models using metrics and business constraints that better reflect real-world fraud operations.
-
-The platform focuses on:
-
-* Fraud detection
-* Risk ranking
-* Investigation prioritization
-* Explainability
-* False-positive management
-* Analyst workload
-* Fraud capture
-* Business trade-offs
-
----
-
-## Core Concept
+### Real-Time Scoring Path
 
 ```text
-Raw Transactions
-       |
-       v
-Data Ingestion
-       |
-       v
-Data Validation
-       |
-       v
-PostgreSQL
-       |
-       v
-dbt Transformation
-       |
-       v
-Behavioral Features
-       |
-       +----------------+
-       |                |
-       v                v
- Rule Engine       ML Model
-       |                |
-       +-------+--------+
-               |
-               v
-          Risk Scoring
-               |
-               v
-       Explainability
-               |
-               v
-      Investigation Queue
-          /          \
-         v            v
-      FastAPI      Power BI
+Incoming Transaction
+        │
+        ▼
+   FastAPI (validation)
+        │
+        ▼
+   Historical Context ──────────────────────┐
+   (PostgreSQL, strict temporal cutoff)     │
+        │                                   │
+        ▼                                   │
+   Leakage-Safe Feature Engineering        │
+   (server-side, from raw fields)           │
+        │                                   │
+        ▼                                   │
+   ML Model (Random Forest)                │
+        │                                   │
+        ├──▶ SHAP Explanation               │
+        │                                   │
+        ▼                                   │
+   Risk Engine                             │
+   (ML 70% + Rules 30%)                    │
+        │                                   │
+        ▼                                   │
+   PostgreSQL ──────────────────────────────┘
+   (risk.transaction_scores)
+        │
+        ├──▶ API Response
+        │
+        └──▶ Investigation Queue (Streamlit)
+```
+
+### Cloud Architecture
+
+```text
+                    GitHub Actions
+                    ┌──────┴──────┐
+                    │             │
+               Docker Build   Terraform
+                    │             │
+                    ▼             ▼
+                   ECR          AWS
+                    │
+              ┌─────┴─────┐
+              │           │
+         FastAPI     Streamlit
+              │           │
+              └─────┬─────┘
+                    │
+                    ▼
+              RDS PostgreSQL
+
+                 S3
+            ┌──────┴──────┐
+            │              │
+       Model Artifacts   Dataset
 ```
 
 ---
 
-## Project Goals
+## End-to-End Transaction Flow
 
-FraudLens aims to demonstrate the ability to:
+```text
+1. POST /score-transaction
+   {
+     "transaction_id": "TXN-001",
+     "timestamp": "2026-09-09T15:42:31Z",
+     "amount_ngn": 185000.00,
+     "transaction_type": "TRANSFER",
+     "merchant_category": "Electronics",
+     "location": "Lagos",
+     "device_used": "mobile",
+     "payment_channel": "mobile_app",
+     "ip_address": "192.168.1.100",
+     "device_hash": "device_abc123",
+     "bvn_linked": true,
+     "sender_persona": "individual",
+     "sender_account": "ACC-12345",
+     "receiver_account": "ACC-98765"
+   }
 
-1. Ingest and validate transaction data.
-2. Design a relational data model.
-3. Build reproducible data transformations.
-4. Engineer behavioral risk features.
-5. Handle highly imbalanced classification.
-6. Train and evaluate fraud models.
-7. Generate interpretable risk scores.
-8. Combine machine learning with deterministic risk rules.
-9. Prioritize transactions for human investigation.
-10. expose model predictions through an API.
-11. Build business-facing risk analytics.
-12. Apply software engineering practices to a data science project.
+2. Server generates features from PostgreSQL historical context
+   (strictly: timestamp < transaction_timestamp — no future leakage)
 
----
+3. ML model predicts fraud probability
 
-## Non-Goals
+4. SHAP explains which features contributed to the prediction
 
-FraudLens is a portfolio and educational project.
+5. Risk engine combines ML + rules into risk score and action
 
-It is **not** intended to:
+6. Result persisted to PostgreSQL
 
-* process real financial transactions;
-* make real financial decisions;
-* replace human fraud investigators;
-* provide banking or financial advice;
-* claim production regulatory compliance;
-* use personally identifiable financial information;
-* guarantee fraud detection.
-
-All datasets and examples must be appropriately licensed and safe for public demonstration.
-
----
-
-## Project Philosophy
-
-FraudLens follows five principles.
-
-### 1. Data before models
-
-The quality and structure of the data pipeline matter as much as the model.
-
-### 2. Decisions before predictions
-
-A prediction is only useful if it supports an operational decision.
-
-### 3. Ranking before classification
-
-Fraud teams often have limited investigation capacity.
-
-The system therefore prioritizes transactions rather than simply returning `fraud` or `not fraud`.
-
-### 4. Explainability matters
-
-Risk analysts should be able to understand why a transaction received a high score.
-
-### 5. Never fabricate results
-
-All reported metrics, benchmarks, performance numbers, and business impact estimates must come from actual experiments.
+7. Response:
+   {
+     "transaction_id": "TXN-001",
+     "fraud_probability": 0.87,
+     "risk_score": 84,
+     "risk_level": "high",
+     "recommended_action": "review",
+     "risk_factors": [...],
+     "model_version": "fraudlens-rf-v001",
+     "scored_at": "2026-09-09T15:42:32Z"
+   }
+```
 
 ---
 
-## Planned Technology Stack
+## Key Engineering Decisions
 
-The exact stack may evolve as the project develops.
+| Decision | Rationale |
+| --- | --- |
+| **Server-side feature generation** | Prevents training/inference mismatch; client cannot inject fabricated features |
+| **Strict temporal cutoff (`< T`)** | Ensures no future data influences current transaction scoring |
+| **Forbidden precomputed fields** | Dataset fields with leakage/broken signal are rejected at API validation |
+| **ML + Rules hybrid** | ML provides pattern recognition; rules provide transparency and controllability |
+| **Idempotent scoring** | Duplicate transaction_id returns existing result, no duplicate investigation records |
+| **Persistence before response** | API returns 500 if database write fails — never returns fake success |
+| **SHAP explanations** | TreeExplainer for RF/XGBoost; feature contributions, not causal claims |
 
-### Data
+---
 
-* Python
-* pandas
-* PostgreSQL
+## What This Project Demonstrates
 
-### Transformation
-
-* dbt
+### Data Engineering
+- PostgreSQL data architecture with 5M-row dataset
+- dbt analytics layer (staging → intermediate → marts)
+- Ingestion pipeline with schema validation and checksums
+- Data quality tests
 
 ### Machine Learning
+- Random Forest / Logistic Regression / XGBoost
+- Class imbalance handling (balanced weights, scale_pos_weight)
+- Temporal train/test split (no future leakage)
+- PR-AUC, precision, recall, F1, Precision@K evaluation
 
-* scikit-learn
-* XGBoost
-* SHAP
+### Feature Engineering
+- Leakage-safe behavioral features computed server-side from PostgreSQL
+- Historical context: velocity, customer behavior, merchant/location risk
+- Training/inference parity via shared `MODEL_FEATURES` contract
 
-### API
+### Explainability
+- SHAP TreeExplainer for tree-based models
+- Feature contribution explanations in API response
 
-* FastAPI
+### Risk Intelligence
+- ML probability + deterministic rules → risk score (0–100)
+- Risk levels: Low / Medium / High / Critical
+- Actions: allow / monitor / review / urgent_review
+- Investigation queue prioritized by risk score
 
-### Analytics
+### API / Backend
+- FastAPI with strict Pydantic validation
+- `extra="forbid"` rejects unknown fields
+- Forbidden precomputed features rejected
+- Idempotent scoring via PostgreSQL upsert
+- Health/readiness endpoints
 
-* Power BI
+### Dashboard
+- Streamlit with 5 pages (Executive, Risk, Investigation, Fraud, Model Performance)
+- All data from PostgreSQL — no fabricated metrics
 
-### Engineering
+### Cloud / DevOps
+- Docker multi-stage build (non-root containers)
+- AWS ECS Fargate deployment
+- RDS PostgreSQL, S3 for model artifacts
+- Terraform infrastructure as code
+- GitHub Actions CI/CD with OIDC
 
-* Docker
-* pytest
-* GitHub Actions
-
-### Potential Future Infrastructure
-
-* AWS
-* Terraform
-* Apache Airflow
-* Spark
-* Kafka
-
-Future technologies will only be introduced when they solve a demonstrated problem.
+### Testing
+- 139 Python tests (unit, integration, API, temporal leakage, idempotency)
+- dbt data quality tests
 
 ---
 
-## Project Status
+## Technology Stack
 
-Current stage:
-
-> **Phase 10 — Real-Time Decisioning (COMPLETE)**
-
-| Phase | Status |
+| Layer | Technology |
 | --- | --- |
-| Phase 0 — Foundation | COMPLETE |
-| Phase 0 — Dataset Validation | COMPLETE |
-| Phase 1 — Ingestion | COMPLETE |
-| Phase 2 — Data Modeling | COMPLETE |
-| Phase 3 — Feature Engineering | COMPLETE |
-| Phase 4 — Modeling | COMPLETE |
-| Phase 5 — Risk Engine | COMPLETE |
-| Phase 6 — API | COMPLETE |
-| Phase 7 — Dashboard | COMPLETE |
-| Phase 8 — Production Engineering | COMPLETE |
-| Phase 9 — Cloud Deployment | COMPLETE |
-| Phase 10 — Real-Time Decisioning | COMPLETE |
+| Data | PostgreSQL, dbt |
+| ML | scikit-learn, XGBoost, SHAP |
+| API | FastAPI, Pydantic |
+| Dashboard | Streamlit |
+| Infrastructure | Docker, AWS ECS Fargate, RDS, S3, ECR, ALB |
+| IaC | Terraform |
+| CI/CD | GitHub Actions |
+| Testing | pytest |
 
-### Dataset
+---
 
-FraudLens uses the **Nigerian Financial Transactions and Fraud Detection Dataset** (V1).
+## Testing
 
-* **Source:** [HuggingFace](https://huggingface.co/datasets/electricsheepafrica/Nigerian-Financial-Transactions-and-Fraud-Detection-Dataset)
-* **Type:** Synthetic
-* **Rows:** 5,000,000
-* **Columns:** 21
-* **Observed fraud rate:** 3.5911% (179,553 fraud transactions)
-* **File size:** ~924 MB
+```bash
+make test          # Run all 139 Python tests
+make dbt-test      # Run dbt data quality tests
+make lint          # Check code style
+```
 
-The raw dataset is intentionally excluded from Git. See [`data/README.md`](data/README.md) for download instructions.
+---
 
-**Critical validation findings:**
+## Local Development
 
-* `new_device_transaction` is a **leakage feature** — 100% of fraud cases have it=True
-* `time_since_last_transaction` is **broken** — 41% negative values, no correlation with actual
-* `velocity_score` and `geo_anomaly_score` have **no predictive signal**
-* All behavioral features must be computed from raw fields
+```bash
+# Docker
+cp .env.example .env
+make docker-up
 
-See [`docs/dataset-selection.md`](docs/dataset-selection.md) for the full validation report.
+# Or manual
+make install
+make api           # Terminal 1
+make dashboard     # Terminal 2
+```
+
+---
+
+## Cloud Deployment
+
+```bash
+# Infrastructure
+cd terraform && terraform apply
+
+# Application (via GitHub Actions on push to main)
+git push origin main
+```
 
 ---
 
@@ -248,164 +242,32 @@ See [`docs/dataset-selection.md`](docs/dataset-selection.md) for the full valida
 
 ```text
 fraudlens/
-├── README.md
-├── AGENTS.md
-├── LICENSE
-├── .gitignore
-├── .env.example
-│
-├── data/
-│   ├── README.md
-│   ├── dataset_metadata.yml
-│   ├── raw/            (not tracked — too large)
-│   ├── staging/
-│   └── processed/
-│
-├── dbt/
-│   └── fraudlens/      (dbt project)
-│
-├── docs/
-│   ├── architecture.md
-│   ├── data-pipeline.md
-│   ├── data-model.md
-│   ├── data-dictionary.md
-│   ├── dataset-selection.md
-│   ├── feature-engineering.md
-│   ├── modeling.md
-│   ├── evaluation.md
-│   ├── risk-engine.md
-│   ├── api.md
-│   ├── dashboard.md
-│   ├── development.md
-│   ├── testing.md
-│   ├── deployment.md
-│   ├── security.md
-│   ├── decisions.md
-│   └── roadmap.md
-│
-├── src/
-│   └── fraudlens/
-│       ├── __init__.py
-│       ├── ingestion/      (Phase 1: CSV → PostgreSQL)
-│       ├── features/       (Phase 3: behavioral features)
-│       ├── models/         (Phase 4: ML training + serving)
-│       │   ├── trainer.py
-│       │   ├── evaluator.py
-│       │   ├── serving.py
-│       │   └── explainer.py
-│       ├── risk/           (Phase 5: risk engine + rules)
-│       ├── api/            (Phase 6: FastAPI scoring)
-│       └── dashboard/      (Phase 7: Streamlit)
-│
-├── tests/
-└── models/             (trained artifacts, gitignored)
+├── src/fraudlens/
+│   ├── api/              FastAPI endpoints
+│   ├── features/         Feature preparation (training/inference parity)
+│   ├── models/           ML training, serving, SHAP
+│   ├── risk/             Risk engine, rules, persistence, scoring
+│   ├── ingestion/        PostgreSQL ingestion pipeline
+│   └── dashboard/        Streamlit dashboard + data access layer
+├── dbt/fraudlens/        dbt analytics models
+├── tests/                139 Python tests
+├── terraform/            AWS infrastructure as code
+├── docs/                 Architecture, API, decisions, deployment
+└── .github/workflows/    CI/CD pipelines
 ```
 
 ---
 
-## Roadmap
+## Known Limitations
 
-### Phase 0 — Foundation
-
-* Repository structure
-* Development environment
-* Documentation
-* Configuration
-* Database connection
-* Testing foundation
-
-### Phase 1 — Data Ingestion
-
-* Dataset selection
-* Raw data ingestion
-* Schema validation
-* Data profiling
-
-### Phase 2 — Data Modeling
-
-* PostgreSQL schema
-* Normalized entities
-* dbt staging models
-* dbt analytical models
-* Data quality tests
-
-### Phase 3 — Feature Engineering
-
-* Transaction velocity
-* Amount anomalies
-* Customer behavior
-* Device behavior
-* Geographic behavior
-* Merchant behavior
-
-### Phase 4 — Baseline ML
-
-* Train/validation/test strategy
-* Logistic regression
-* Random forest
-* XGBoost
-* Class imbalance handling
-
-### Phase 5 — Risk Intelligence
-
-* Risk scoring
-* Threshold optimization
-* Rule engine
-* Investigation queue
-* SHAP explanations
-
-### Phase 6 — API
-
-* FastAPI
-* Transaction scoring endpoint
-* Health endpoint
-* Model metadata
-* API validation
-
-### Phase 7 — BI
-
-* Executive dashboard
-* Risk monitoring
-* Investigation queue
-* Model performance
-
-### Phase 8 — Production Engineering
-
-* Docker
-* CI/CD
-* Automated tests
-* Model artifact management
-* Observability
-
-### Phase 9 — Cloud
-
-Potentially:
-
-* AWS
-* Terraform
-* Managed PostgreSQL
-* Cloud deployment
+- **Synthetic dataset** — Fraud patterns are synthetic, not real financial data
+- **Latency not comprehensively benchmarked** — Real-time scoring latency measured but not stress-tested at scale
+- **No model monitoring** — Drift detection and automated retraining are not implemented
+- **No authentication** — API is unauthenticated (portfolio project)
+- **Single-region AWS deployment** — No multi-AZ or disaster recovery
 
 ---
 
-## Success Criteria
+## License
 
-FraudLens is considered MVP-complete when a user can:
-
-1. Load the selected dataset.
-2. Run the data pipeline.
-3. Generate validated analytical data.
-4. Generate transaction-level risk features.
-5. Train the selected model.
-6. Evaluate the model using appropriate metrics.
-7. Generate a risk score.
-8. Explain the primary risk factors.
-9. Produce an investigation queue.
-
----
-
-## Disclaimer
-
-FraudLens is a portfolio project using public or appropriately generated data.
-
-It does not represent a real financial institution or production fraud detection system.
+MIT
