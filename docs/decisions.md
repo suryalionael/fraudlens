@@ -235,3 +235,102 @@ All reported performance metrics must come from actual experiments.
 FraudLens is intended to demonstrate real engineering and analytical ability.
 
 Fabricated metrics undermine the credibility of the project.
+
+---
+
+# ADR-011 — Use pickle for model artifact serialization
+
+## Status
+
+Accepted
+
+## Decision
+
+Model artifacts (model + scaler + metadata) are serialized using Python pickle via a `ModelArtifact` dataclass.
+
+## Alternatives Considered
+
+* joblib — similar to pickle, no meaningful advantage for this use case
+* XGBoost native format — only works for XGBoost, not RF/LR
+* ONNX — adds dependency, unnecessary for portfolio project
+* JSON-only metadata + separate model file — more complex, no benefit
+
+## Rationale
+
+Pickle is already a dependency (via scikit-learn). It handles arbitrary Python objects including sklearn models and scalers. The `ModelArtifact` dataclass bundles model, scaler, feature list, and metadata into a single file.
+
+## Consequences
+
+* Artifact is Python-specific (not portable to non-Python runtimes)
+* Security: never load untrusted pickle files
+* Artifact includes metadata JSON sidecar for easy inspection
+
+---
+
+# ADR-012 — Centralize feature preparation for training/inference parity
+
+## Status
+
+Accepted
+
+## Decision
+
+Feature preparation is centralized in `src/fraudlens/features/preparation.py`.
+
+Training uses `prepare_features_from_dataframe()`.
+Inference uses `prepare_features_from_transaction()`.
+Both share the canonical `MODEL_FEATURES` list.
+
+## Rationale
+
+Training/inference feature mismatch is one of the most common and hardest-to-diagnose ML bugs. A shared feature contract prevents this.
+
+## Consequences
+
+* Single source of truth for feature names and transformations
+* Both paths produce identical feature vectors for the same input
+* Adding a new feature requires updating one list
+
+---
+
+# ADR-013 — Use SHAP for model explainability
+
+## Status
+
+Accepted
+
+## Decision
+
+SHAP (TreeExplainer for tree models, coefficient-based for linear models) provides feature-level explanations for individual predictions.
+
+## Rationale
+
+SHAP is the industry standard for local model explanations. It provides theoretically grounded feature attributions. The risk_factors in the API response combine rule-based signals with SHAP explanations.
+
+## Consequences
+
+* SHAP is an additional dependency (already installed)
+* Explanations describe feature contributions, not causal evidence
+* Fallback to feature importances if SHAP fails
+
+---
+
+# ADR-014 — API uses trained model, not heuristic probability
+
+## Status
+
+Accepted
+
+## Decision
+
+The `/score-transaction` endpoint uses the actual trained ML model for fraud probability estimation. No heuristic fallback in the primary scoring path.
+
+## Rationale
+
+A heuristic masquerading as ML output is worse than no model. The trained model provides genuinely learned patterns. If no model is loaded, the API returns 503 rather than fake scores.
+
+## Consequences
+
+* API requires a trained model artifact to be present
+* Health endpoint reports `"degraded"` when no model is loaded
+* Scoring returns 503 when no model is available

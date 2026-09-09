@@ -258,6 +258,9 @@ fraudlens/
 │   ├── staging/
 │   └── processed/
 │
+├── dbt/
+│   └── fraudlens/      (dbt project)
+│
 ├── docs/
 │   ├── architecture.md
 │   ├── data-pipeline.md
@@ -279,10 +282,20 @@ fraudlens/
 │
 ├── src/
 │   └── fraudlens/
-│       └── __init__.py
+│       ├── __init__.py
+│       ├── ingestion/      (Phase 1: CSV → PostgreSQL)
+│       ├── features/       (Phase 3: behavioral features)
+│       ├── models/         (Phase 4: ML training + serving)
+│       │   ├── trainer.py
+│       │   ├── evaluator.py
+│       │   ├── serving.py
+│       │   └── explainer.py
+│       ├── risk/           (Phase 5: risk engine + rules)
+│       ├── api/            (Phase 6: FastAPI scoring)
+│       └── dashboard/      (Phase 7: Streamlit)
 │
 ├── tests/
-└── notebooks/
+└── models/             (trained artifacts, gitignored)
 ```
 
 ---

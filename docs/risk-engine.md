@@ -112,20 +112,29 @@ The model output must remain distinguishable from deterministic rules.
 
 ## 7. Explainability
 
-The final risk result should expose the strongest available risk factors.
+The API response combines two types of risk factors:
+
+1. **Rule-based signals** — deterministic rules that trigger on specific conditions
+2. **SHAP explanations** — model-based feature contributions
 
 Example:
 
-```text
-Risk Score: 91
-Risk Level: Critical
-
-Risk Factors:
-- New device
-- Unusually high transaction amount
-- High transaction velocity
-- International location
+```json
+{
+  "risk_factors": [
+    "Transaction from a new device",
+    "Transaction amount significantly deviates from sender's average",
+    "Feature 'amount_zscore' increases risk (contribution: 0.2341)",
+    "Feature 'device_first_seen_int' increases risk (contribution: 0.1892)"
+  ]
+}
 ```
+
+SHAP explanations are generated using:
+* `TreeExplainer` for tree-based models (Random Forest, XGBoost)
+* Coefficient-based attribution for linear models (Logistic Regression)
+
+Explanations describe features CONTRIBUTING to the model prediction, not causal evidence of fraud.
 
 ---
 

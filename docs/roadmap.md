@@ -109,6 +109,7 @@ Capture transaction behavior and anomalies.
 
 * Python module: `src/fraudlens/features/engineering.py`
 * Feature tester: `src/fraudlens/features/tester.py`
+* Feature preparation: `src/fraudlens/features/preparation.py`
 * dbt model: `dbt/fraudlens/models/intermediate/int_features_temporal.sql`
 * 13 Python unit tests (all passing)
 * 14 dbt data tests (all passing)
@@ -176,6 +177,8 @@ Develop and evaluate fraud models.
 
 * Python module: `src/fraudlens/models/trainer.py`
 * Evaluator: `src/fraudlens/models/evaluator.py`
+* Model serving: `src/fraudlens/models/serving.py`
+* SHAP explainer: `src/fraudlens/models/explainer.py`
 * 13 unit tests (all passing)
 
 ### Models Implemented
@@ -232,6 +235,7 @@ Turn predictions into operational risk decisions.
 
 * Python module: `src/fraudlens/risk/engine.py`
 * Rules engine: `src/fraudlens/risk/rules.py`
+* SHAP explanations: `src/fraudlens/models/explainer.py` (integrated into API)
 * 18 unit tests (all passing)
 
 ### Risk Scoring
@@ -285,6 +289,8 @@ Make risk scoring programmatically accessible.
 ### Implementation
 
 * Python module: `src/fraudlens/api/app.py`
+* Uses trained ML model (not heuristic) for fraud probability
+* SHAP explanations in response
 * 8 API tests (all passing)
 
 ### Endpoints
