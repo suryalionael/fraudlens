@@ -3,6 +3,8 @@
 Scores existing transactions from raw.transactions through the full pipeline
 (prep features → ML model → risk engine → persist) and stores results in
 risk.transaction_scores.
+
+Performance: uses vectorized pre-computation to avoid O(n²) per-row scanning.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import psycopg2
 
@@ -19,6 +22,7 @@ from fraudlens.features.preparation import (
     prepare_features_from_transaction,
 )
 from fraudlens.ingestion.postgres_loader import DBConfig
+from fraudlens.logging_config import configure_logging
 from fraudlens.models.explainer import explain_prediction, format_explanation_for_api
 from fraudlens.models.serving import ModelArtifact, load_model_artifact, predict_probability
 from fraudlens.risk.engine import RiskEngine
@@ -31,15 +35,7 @@ def _load_raw_transactions(
     config: DBConfig,
     limit: int | None = None,
 ) -> pd.DataFrame:
-    """Load raw transactions from PostgreSQL.
-
-    Args:
-        config: Database configuration.
-        limit: Maximum rows to load. None = all.
-
-    Returns:
-        DataFrame with raw transaction data.
-    """
+    """Load raw transactions from PostgreSQL."""
     conn = psycopg2.connect(
         host=config.host,
         port=config.port,
@@ -47,13 +43,104 @@ def _load_raw_transactions(
         user=config.user,
         password=config.password,
     )
-
     query = "SELECT * FROM raw.transactions ORDER BY timestamp"
     if limit:
         query += f" LIMIT {limit}"
-
     df = pd.read_sql(query, conn)
     conn.close()
+    return df
+
+
+def _precompute_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Pre-compute all behavioral features using vectorized operations.
+
+    Instead of scanning the full DataFrame per row (O(n²)), this uses
+    groupby + cumulative operations to compute features in O(n log n).
+    """
+    df = df.sort_values("timestamp").reset_index(drop=True)
+
+    # ── Sender-level cumulative features ──
+    # Number of prior transactions by this sender (before current row)
+    df["_sender_cumcount"] = df.groupby("sender_account").cumcount()
+
+    # Running mean/std/max of amount by sender (using expanding window)
+    # We need cumulative stats EXCLUDING current row
+    sender_groups = df.groupby("sender_account")["amount_ngn"]
+
+    # Use shift(1) to exclude current row from cumulative stats
+    shifted_amount = sender_groups.shift(1)
+    df["_sender_cum_sum"] = shifted_amount.groupby(df["sender_account"]).cumsum()
+    df["_sender_cum_count"] = shifted_amount.groupby(df["sender_account"]).count()
+    df["_sender_cum_max"] = shifted_amount.groupby(df["sender_account"]).cummax()
+
+    # Customer features
+    df["customer_transaction_count_prior"] = df["_sender_cum_count"].fillna(0).astype(int)
+    df["customer_avg_amount_prior"] = (df["_sender_cum_sum"] / df["_sender_cum_count"].replace(0, np.nan)).fillna(0.0)
+    df["customer_max_amount_prior"] = df["_sender_cum_max"].fillna(0.0)
+
+    # Std requires expanding window — compute via cumulative sum of squares
+    amount_sq = (shifted_amount ** 2).fillna(0)
+    cum_sq = amount_sq.groupby(df["sender_account"]).cumsum()
+    n = df["_sender_cum_count"].replace(0, np.nan)
+    mean = df["_sender_cum_sum"] / n
+    df["customer_std_amount_prior"] = np.sqrt(
+        (cum_sq / n) - (mean ** 2)
+    ).fillna(0.0)
+
+    # Amount ratio
+    df["amount_ratio_to_avg"] = np.where(
+        df["customer_avg_amount_prior"] > 0,
+        df["amount_ngn"] / df["customer_avg_amount_prior"],
+        1.0,
+    )
+
+    # Amount z-score
+    std = df["customer_std_amount_prior"].replace(0, np.nan)
+    df["amount_zscore"] = ((df["amount_ngn"] - df["customer_avg_amount_prior"]) / std).fillna(0.0)
+
+    # ── Merchant-level cumulative features ──
+    merchant_groups = df.groupby("merchant_category")
+    shifted_merchant = merchant_groups["is_fraud"].shift(1)
+    df["merchant_transaction_count_prior"] = shifted_merchant.groupby(df["merchant_category"]).count().fillna(0).astype(int)
+    merchant_fraud_cumsum = shifted_merchant.fillna(0).groupby(df["merchant_category"]).cumsum()
+    merchant_count = df["merchant_transaction_count_prior"].replace(0, np.nan)
+    df["merchant_fraud_rate_prior"] = (merchant_fraud_cumsum / merchant_count).fillna(0.0)
+
+    # ── Location-level cumulative features ──
+    location_groups = df.groupby("location")
+    shifted_location = location_groups["is_fraud"].shift(1)
+    df["location_transaction_count_prior"] = shifted_location.groupby(df["location"]).count().fillna(0).astype(int)
+    location_fraud_cumsum = shifted_location.fillna(0).groupby(df["location"]).cumsum()
+    location_count = df["location_transaction_count_prior"].replace(0, np.nan)
+    df["location_fraud_rate_prior"] = (location_fraud_cumsum / location_count).fillna(0.0)
+
+    # ── Device-level cumulative features ──
+    # Device transaction count prior
+    device_groups = df.groupby("device_hash")
+    shifted_device = device_groups.cumcount()
+    df["device_transaction_count_prior"] = shifted_device
+
+    # Device first seen: first occurrence per (sender, device) pair
+    df["_sender_device_key"] = df["sender_account"] + "||" + df["device_hash"]
+    df["device_first_seen"] = ~df.duplicated(subset=["_sender_device_key"], keep="first")
+
+    # ── Temporal features ──
+    df["hour_of_day"] = df["timestamp"].dt.hour
+    df["day_of_week"] = df["timestamp"].dt.dayofweek
+    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+
+    # ── Velocity features (not available from raw data) ──
+    df["transactions_last_10m"] = 0
+    df["transactions_last_60m"] = 0
+    df["transactions_last_1440m"] = 0
+
+    # ── Amount zscore from source (untrusted) ──
+    df["amount_zscore_source"] = df.get("spending_deviation_score", pd.Series(0, index=df.index)).fillna(0)
+
+    # Cleanup temporary columns
+    temp_cols = [c for c in df.columns if c.startswith("_")]
+    df = df.drop(columns=temp_cols, errors="ignore")
+
     return df
 
 
@@ -74,98 +161,33 @@ def _row_to_transaction(row: pd.Series) -> dict[str, Any]:
         "sender_persona": row.get("sender_persona", ""),
         "is_fraud": bool(row["is_fraud"]) if row["is_fraud"] is not None else False,
         "timestamp": row["timestamp"].isoformat() if hasattr(row["timestamp"], "isoformat") else str(row["timestamp"]),
+        "amount_zscore": float(row.get("amount_zscore", 0)),
+        "amount_ratio_to_avg": float(row.get("amount_ratio_to_avg", 1.0)),
+        "customer_transaction_count_prior": int(row.get("customer_transaction_count_prior", 0)),
+        "customer_avg_amount_prior": float(row.get("customer_avg_amount_prior", 0)),
+        "device_first_seen": bool(row.get("device_first_seen", False)),
+        "merchant_fraud_rate_prior": float(row.get("merchant_fraud_rate_prior", 0)),
+        "location_fraud_rate_prior": float(row.get("location_fraud_rate_prior", 0)),
+        "transactions_last_1h": int(row.get("transactions_last_60m", 0)),
+        "customer_transactions_per_day": 0.0,
     }
 
 
-def _compute_simple_features(
-    row: pd.Series,
-    all_rows: pd.DataFrame,
-) -> dict[str, Any]:
-    """Compute simple features for a transaction using historical data.
-
-    For batch scoring, we compute simplified features that don't require
-    the full FeatureEngineer (which is O(n²) per sender). Instead, we use
-    pre-computed dbt features or simple aggregations.
-    """
-    features: dict[str, Any] = {}
-
-    # Amount features
-    features["amount_ngn"] = float(row["amount_ngn"])
-
-    # Pre-computed source fields (untrusted but ingested)
-    features["amount_zscore"] = float(row.get("spending_deviation_score", 0) or 0)
-    features["transactions_last_10m"] = 0  # Not available from raw data
-    features["transactions_last_60m"] = 0
-    features["transactions_last_1440m"] = 0
-
-    # Customer features (simplified: use global averages as defaults)
-    sender = row["sender_account"]
-    sender_mask = all_rows["sender_account"] == sender
-    sender_rows = all_rows[sender_mask]
-    prior_rows = sender_rows[sender_rows["timestamp"] < row["timestamp"]]
-
-    if len(prior_rows) > 0:
-        features["customer_transaction_count_prior"] = len(prior_rows)
-        features["customer_avg_amount_prior"] = float(prior_rows["amount_ngn"].mean())
-        features["customer_std_amount_prior"] = float(prior_rows["amount_ngn"].std() or 0)
-        features["customer_max_amount_prior"] = float(prior_rows["amount_ngn"].max())
-        avg = features["customer_avg_amount_prior"]
-        features["amount_ratio_to_avg"] = float(row["amount_ngn"]) / avg if avg > 0 else 1.0
-    else:
-        features["customer_transaction_count_prior"] = 0
-        features["customer_avg_amount_prior"] = 0.0
-        features["customer_std_amount_prior"] = 0.0
-        features["customer_max_amount_prior"] = 0.0
-        features["amount_ratio_to_avg"] = 1.0
-
-    # Merchant features
-    merchant = row["merchant_category"]
-    merchant_mask = all_rows["merchant_category"] == merchant
-    merchant_rows = all_rows[merchant_mask]
-    merchant_prior = merchant_rows[merchant_rows["timestamp"] < row["timestamp"]]
-    features["merchant_transaction_count_prior"] = len(merchant_prior)
-    if len(merchant_prior) > 0:
-        features["merchant_fraud_rate_prior"] = float(
-            merchant_prior["is_fraud"].sum() / len(merchant_prior)
-        )
-    else:
-        features["merchant_fraud_rate_prior"] = 0.0
-
-    # Location features
-    location = row["location"]
-    location_mask = all_rows["location"] == location
-    location_rows = all_rows[location_mask]
-    location_prior = location_rows[location_rows["timestamp"] < row["timestamp"]]
-    features["location_transaction_count_prior"] = len(location_prior)
-    if len(location_prior) > 0:
-        features["location_fraud_rate_prior"] = float(
-            location_prior["is_fraud"].sum() / len(location_prior)
-        )
-    else:
-        features["location_fraud_rate_prior"] = 0.0
-
-    # Device features
-    device = row.get("device_hash", "")
-    device_mask = all_rows["device_hash"] == device if device else pd.Series(False, index=all_rows.index)
-    device_rows = all_rows[device_mask]
-    device_prior = device_rows[device_rows["timestamp"] < row["timestamp"]]
-    features["device_transaction_count_prior"] = len(device_prior)
-
-    # Device first seen: check if this sender has used this device before
-    sender_device_prior = device_prior[device_prior["sender_account"] == sender]
-    features["device_first_seen"] = len(sender_device_prior) == 0
-
-    # Temporal features
-    ts = row["timestamp"]
-    if hasattr(ts, "hour"):
-        features["hour_of_day"] = ts.hour
-        features["day_of_week"] = ts.dayofweek
-        features["is_weekend"] = 1 if ts.dayofweek >= 5 else 0
-    else:
-        features["hour_of_day"] = 0
-        features["day_of_week"] = 0
-        features["is_weekend"] = 0
-
+def _features_for_model(row: pd.Series, feature_columns: list[str]) -> dict[str, float]:
+    """Extract model features from pre-computed row."""
+    features = {}
+    for col in feature_columns:
+        if col == "device_first_seen_int":
+            features[col] = float(int(row.get("device_first_seen", False)))
+        else:
+            val = row.get(col, 0)
+            if val is None:
+                features[col] = 0.0
+            else:
+                try:
+                    features[col] = float(val)
+                except (TypeError, ValueError):
+                    features[col] = 0.0
     return features
 
 
@@ -173,9 +195,12 @@ def batch_score_transactions(
     config: DBConfig | None = None,
     model_path: str | None = None,
     limit: int | None = None,
-    batch_size: int = 500,
+    batch_size: int = 1000,
 ) -> dict[str, Any]:
     """Score all raw transactions and persist results.
+
+    Uses vectorized feature pre-computation (O(n log n)) instead of
+    per-row DataFrame scanning (O(n²)).
 
     Args:
         config: Database configuration. If None, uses env vars.
@@ -188,10 +213,12 @@ def batch_score_transactions(
     """
     config = config or DBConfig.from_env()
 
+    # Configure logging
+    configure_logging()
+
     # Load model
     from fraudlens.api.app import DEFAULT_MODEL_PATH
     resolved_path = model_path or DEFAULT_MODEL_PATH
-
     artifact = load_model_artifact(resolved_path)
     logger.info("Loaded model: %s", artifact.model_version)
 
@@ -205,41 +232,53 @@ def batch_score_transactions(
     df = _load_raw_transactions(config, limit=limit)
     logger.info("Loaded %d transactions", len(df))
 
+    # Pre-compute ALL features vectorized (O(n log n))
+    logger.info("Pre-computing features...")
+    precompute_start = datetime.now()
+    df = _precompute_features(df)
+    precompute_elapsed = (datetime.now() - precompute_start).total_seconds()
+    logger.info("Feature pre-computation took %.1fs", precompute_elapsed)
+
     # Score in batches
     total_scored = 0
     start_time = datetime.now()
+    feature_columns = artifact.feature_columns
 
     for batch_start in range(0, len(df), batch_size):
         batch_end = min(batch_start + batch_size, len(df))
         batch_df = df.iloc[batch_start:batch_end]
 
-        scores = []
+        # Vectorized model prediction for the batch
+        batch_features = []
+        batch_model_features = []
         for _, row in batch_df.iterrows():
+            mf = _features_for_model(row, feature_columns)
+            batch_model_features.append(mf)
+
+        # Build feature matrix for batch prediction
+        X_batch = pd.DataFrame(batch_model_features, columns=feature_columns)
+        if artifact.scaler is not None:
+            X_batch = pd.DataFrame(
+                artifact.scaler.transform(X_batch),
+                columns=feature_columns,
+            )
+        probs = artifact.model.predict_proba(X_batch)[:, 1]
+
+        # Process each row for risk assessment and persistence
+        scores = []
+        for i, (_, row) in enumerate(batch_df.iterrows()):
             try:
-                # Compute features
-                features = _compute_simple_features(row, df)
-
-                # Prepare for model
-                model_features = prepare_features_from_transaction(
-                    features, artifact.feature_columns
-                )
-
-                # Get fraud probability
-                fraud_prob = predict_probability(artifact, model_features)
-
-                # Get risk assessment
+                fraud_prob = float(probs[i])
                 transaction = _row_to_transaction(row)
                 risk_result = risk_engine.assess_transaction(transaction, fraud_prob)
 
-                # Generate explanations
-                import pandas as pd
-                X = pd.DataFrame([model_features], columns=artifact.feature_columns)
+                # SHAP explanation (per-row, but only top_k=3 for batch efficiency)
+                X_single = pd.DataFrame([batch_model_features[i]], columns=feature_columns)
                 explanations = explain_prediction(
-                    artifact.model, artifact.feature_columns, X, top_k=5
+                    artifact.model, feature_columns, X_single, top_k=3
                 )
                 shap_factors = format_explanation_for_api(explanations)
 
-                # Build score record
                 score = {
                     "transaction_id": row["transaction_id"],
                     "timestamp": row["timestamp"],
@@ -275,7 +314,7 @@ def batch_score_transactions(
             store.upsert_batch(scores)
             total_scored += len(scores)
 
-        if total_scored % 5000 == 0:
+        if total_scored % 10000 == 0:
             logger.info("Scored %d / %d transactions...", total_scored, len(df))
 
     elapsed = (datetime.now() - start_time).total_seconds()
@@ -285,6 +324,8 @@ def batch_score_transactions(
         "total_transactions": len(df),
         "total_scored": total_scored,
         "elapsed_seconds": round(elapsed, 1),
+        "precompute_seconds": round(precompute_elapsed, 1),
+        "scoring_seconds": round(elapsed - precompute_elapsed, 1),
         "model_version": artifact.model_version,
         "scores_per_second": round(total_scored / elapsed, 1) if elapsed > 0 else 0,
     }
