@@ -11,22 +11,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create non-root user
+RUN groupadd -r fraudlens && useradd -r -g fraudlens fraudlens
+
 COPY src/ src/
 COPY dbt/ dbt/
-COPY tests/ tests/
-COPY conftest.py .
-COPY docs/ docs/
-COPY .env.example .
 
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 
 # ── API service ──
 FROM base AS api
+COPY docs/ docs/
+USER fraudlens
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "fraudlens.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # ── Dashboard service ──
 FROM base AS dashboard
+USER fraudlens
 EXPOSE 8501
 CMD ["streamlit", "run", "src/fraudlens/dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
