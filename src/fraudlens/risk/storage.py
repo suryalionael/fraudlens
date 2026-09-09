@@ -49,20 +49,35 @@ CREATE TABLE IF NOT EXISTS risk.transaction_scores (
     scored_at           TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Dashboard query indexes
 CREATE INDEX IF NOT EXISTS idx_transaction_scores_risk_level
     ON risk.transaction_scores (risk_level);
-
 CREATE INDEX IF NOT EXISTS idx_transaction_scores_risk_score
     ON risk.transaction_scores (risk_score DESC);
-
 CREATE INDEX IF NOT EXISTS idx_transaction_scores_scored_at
     ON risk.transaction_scores (scored_at);
-
 CREATE INDEX IF NOT EXISTS idx_transaction_scores_merchant
     ON risk.transaction_scores (merchant_category);
-
 CREATE INDEX IF NOT EXISTS idx_transaction_scores_location
     ON risk.transaction_scores (location);
+
+-- Real-time scoring indexes (raw.transactions)
+-- Note: These are created separately via migration SQL below
+"""
+
+# Indexes for raw.transactions to support real-time historical queries
+RAW_TRANSACTIONS_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_raw_tx_sender_timestamp
+    ON raw.transactions (sender_account, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_raw_tx_device_hash
+    ON raw.transactions (device_hash, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_raw_tx_merchant_timestamp
+    ON raw.transactions (merchant_category, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_raw_tx_location_timestamp
+    ON raw.transactions (location, timestamp);
 """
 
 
@@ -90,10 +105,17 @@ class RiskScoreStore:
             self._conn = None
 
     def create_schema(self) -> None:
-        """Create the risk schema and tables."""
+        """Create the risk schema, tables, and indexes."""
         conn = self.connect()
         with conn.cursor() as cur:
             cur.execute(RISK_SCORES_DDL)
+        conn.commit()
+
+    def create_raw_indexes(self) -> None:
+        """Create indexes on raw.transactions for real-time queries."""
+        conn = self.connect()
+        with conn.cursor() as cur:
+            cur.execute(RAW_TRANSACTIONS_INDEXES)
         conn.commit()
 
     def upsert_score(self, score: dict[str, Any]) -> None:
