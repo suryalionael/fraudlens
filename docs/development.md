@@ -91,7 +91,7 @@ PYTHONPATH=src python -m pytest tests/ -v
 ```text
 ingest data          ← Phase 1 (implemented)
 run validation       ← Phase 1 (implemented)
-run dbt              ← Phase 2 (not started)
+run dbt              ← Phase 2 (implemented)
 generate features    ← Phase 3 (not started)
 train model          ← Phase 4 (not started)
 run risk scoring     ← Phase 5 (not started)

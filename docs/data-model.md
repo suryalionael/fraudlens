@@ -111,12 +111,45 @@ longitude
 
 ---
 
-## 4. Analytical Models
+## 4. Implemented Models (Phase 2)
 
-Potential analytical outputs include:
+### Staging Models
 
 ```text
-fct_transactions
+stg_transactions          — Raw transaction data (view)
+stg_ingestion_runs        — Ingestion run metadata (view)
+```
+
+### Intermediate Models
+
+```text
+int_transaction_enriched  — Transactions with sender, merchant, location, device statistics (view)
+```
+
+### Mart Models
+
+```text
+fct_transactions_analytics — Enriched fact table with analytics features (table)
+rpt_fraud_summary          — Fraud summary report by dimensions (table)
+```
+
+### Schema Hierarchy
+
+```text
+raw (source)
+  ↓
+staging (views)
+  ↓
+intermediate (views)
+  ↓
+marts (tables)
+```
+
+### Future Analytical Models
+
+Planned for later phases:
+
+```text
 fct_transaction_risk
 fct_fraud_events
 fct_investigations

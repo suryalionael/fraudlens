@@ -179,34 +179,94 @@ notes               TEXT
 
 ---
 
-## 7. dbt Transformation (Phase 2 — Not Started)
+## 7. dbt Transformation (Phase 2 — Implemented)
 
-Future dbt models will create:
-
-```text
-stg_transactions
-stg_customers
-stg_merchants
-stg_devices
-```
-
-Intermediate models may calculate:
+### Project Location
 
 ```text
-customer_transaction_history
-merchant_behavior
-device_behavior
-transaction_context
+dbt/fraudlens/
+├── dbt_project.yml
+├── profiles.yml
+├── models/
+│   ├── staging/
+│   │   ├── schema/
+│   │   │   ├── sources.yml
+│   │   │   └── stg_transactions.yml
+│   │   ├── stg_transactions.sql
+│   │   └── stg_ingestion_runs.sql
+│   ├── intermediate/
+│   │   ├── schema/
+│   │   │   └── int_transaction_enriched.yml
+│   │   └── int_transaction_enriched.sql
+│   └── marts/
+│       ├── schema/
+│       │   └── marts.yml
+│       ├── fct_transactions_analytics.sql
+│       └── rpt_fraud_summary.sql
+├── macros/
+├── tests/
+├── snapshots/
+├── analyses/
+└── seeds/
 ```
 
-Marts should support:
+### Staging Models
 
 ```text
-fraud monitoring
-risk modeling
-investigation
-BI
+stg_transactions      — Raw transaction data (view)
+stg_ingestion_runs    — Ingestion run metadata (view)
 ```
+
+### Intermediate Models
+
+```text
+int_transaction_enriched — Transactions with sender, merchant, location, device statistics (view)
+```
+
+Calculates:
+- Sender-level aggregates (transaction count, fraud rate, avg amount)
+- Merchant-level aggregates
+- Location-level aggregates
+- Device-level aggregates
+
+All aggregates are calculated from the full dataset. For Phase 3, temporal-only aggregates will be computed to prevent leakage.
+
+### Marts
+
+```text
+fct_transactions_analytics — Enriched fact table with analytics features (table)
+rpt_fraud_summary          — Fraud summary report by dimensions (table)
+```
+
+### How to Run
+
+```bash
+cd dbt/fraudlens
+
+# Debug connection
+dbt debug
+
+# Run all models
+dbt run
+
+# Run specific model
+dbt run --select stg_transactions
+
+# Run tests
+dbt test
+
+# Generate documentation
+dbt docs generate
+dbt docs serve
+```
+
+### Data Quality Tests
+
+48 tests covering:
+- Primary key uniqueness (transaction_id, ingestion_run_id)
+- Non-null constraints on key fields
+- Accepted values for transaction_type, sender_persona
+- Source freshness validation
 
 ---
 
