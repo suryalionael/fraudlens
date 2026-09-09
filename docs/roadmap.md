@@ -152,6 +152,10 @@ Velocity features (time-windowed counts) are computed in Python due to PostgreSQ
 
 # Phase 4 — Machine Learning
 
+### Status
+
+✅ COMPLETE
+
 ### Objective
 
 Develop and evaluate fraud models.
@@ -168,9 +172,40 @@ Develop and evaluate fraud models.
 * Precision@K;
 * Recall@K.
 
+### Implementation
+
+* Python module: `src/fraudlens/models/trainer.py`
+* Evaluator: `src/fraudlens/models/evaluator.py`
+* 13 unit tests (all passing)
+
+### Models Implemented
+
+| Model | Type | Class Imbalance |
+| --- | --- | --- |
+| Logistic Regression | Baseline | Balanced weights |
+| Random Forest | Ensemble | Balanced weights |
+| XGBoost | Gradient Boosting | scale_pos_weight |
+
+### Evaluation Metrics
+
+* PR-AUC (primary)
+* ROC-AUC
+* Precision / Recall / F1
+* Precision@K (K=100, 500, 1000, 5000)
+* Recall@K
+* Confusion matrix
+* Threshold analysis
+* Optimal threshold selection (F1-maximizing)
+
+### Class Imbalance Strategy
+
+* Logistic Regression: `class_weight='balanced'`
+* Random Forest: `class_weight='balanced'`
+* XGBoost: `scale_pos_weight = n_negative / n_positive`
+
 ### Exit Criteria
 
-A defensible model selection decision can be made.
+✅ A defensible model selection decision can be made.
 
 ---
 
