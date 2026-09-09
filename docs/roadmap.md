@@ -432,20 +432,43 @@ Improve reliability and reproducibility.
 
 # Phase 9 — Cloud
 
+### Status
+
+✅ COMPLETE
+
 ### Objective
 
 Deploy the system to a cloud environment if justified.
 
-Potential components:
+### Implementation
 
-* AWS;
-* Terraform;
-* managed PostgreSQL;
-* container deployment.
+* Terraform: `terraform/` (VPC, RDS, ECS, ECR, S3, ALB, IAM, CloudWatch, Secrets Manager)
+* ECS Fargate: API + Dashboard services
+* RDS PostgreSQL 16
+* S3: model artifacts + dataset
+* ECR: Docker images
+* ALB: HTTP routing
+* GitHub Actions: CI/CD with OIDC
+* S3 model loading in API
+* CloudWatch logging
+* Structured logging in all modules
+
+### Components
+
+* AWS VPC with public/private subnets
+* RDS PostgreSQL (private, encrypted)
+* ECS Fargate (API + Dashboard)
+* ECR (Docker images)
+* S3 (model artifacts, dataset)
+* ALB (HTTP routing)
+* IAM (least-privilege roles)
+* Secrets Manager (DB credentials)
+* CloudWatch (container logs)
+* GitHub Actions OIDC (no static credentials)
 
 ### Exit Criteria
 
-The deployed system is reproducible and documented.
+✅ The deployed system is reproducible and documented.
 
 ---
 

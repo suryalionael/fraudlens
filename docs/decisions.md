@@ -413,3 +413,106 @@ Dashboard data access is isolated in `dashboard/data/` package with page-specifi
 * `dashboard/data/risk.py` — risk monitoring queries
 * `dashboard/data/investigations.py` — investigation queue queries
 * `dashboard/data/fraud.py` — fraud analysis queries
+
+---
+
+# ADR-018 — ECS Fargate for container compute
+
+## Status
+
+Accepted
+
+## Decision
+
+FraudLens deploys on AWS ECS Fargate rather than EC2 instances or Lambda.
+
+## Rationale
+
+* Fargate eliminates instance management
+* Pay-per-use matches portfolio cost requirements
+* Containers provide consistent runtime between local and cloud
+* ECS is simpler than EKS for this scale
+* Lambda would require rewriting the application
+
+## Consequences
+
+* No SSH access to containers (use CloudWatch for debugging)
+* Cold start time ~30s (acceptable for this use case)
+* Resource limits are softer than EC2
+
+---
+
+# ADR-019 — S3 for model artifact storage
+
+## Status
+
+Accepted
+
+## Decision
+
+Model artifacts are stored in S3 and loaded by ECS containers at startup.
+
+## Rationale
+
+* S3 provides durable, versioned object storage
+* Model artifacts are ~10MB (pickle files)
+* ECS containers load from S3 at startup (acceptable cold start)
+* Avoids baking models into Docker images
+* Enables model versioning without image rebuilds
+
+## Consequences
+
+* API startup time includes S3 download (~2-5s)
+* ECS task role needs S3 read access
+* Model artifacts must be uploaded separately from deployment
+
+---
+
+# ADR-020 — GitHub Actions OIDC for AWS authentication
+
+## Status
+
+Accepted
+
+## Decision
+
+GitHub Actions authenticates to AWS using OIDC federation instead of static credentials.
+
+## Rationale
+
+* No long-lived AWS credentials stored in GitHub
+* Automatic credential rotation
+* Least-privilege access per workflow
+* Industry best practice for CI/CD
+
+## Consequences
+
+* Requires one-time setup of OIDC provider in AWS
+* IAM roles must be configured with correct trust policies
+* Each workflow needs appropriate role ARN
+
+---
+
+# ADR-021 — Terraform for infrastructure as code
+
+## Status
+
+Accepted
+
+## Decision
+
+All AWS infrastructure is managed by Terraform.
+
+## Rationale
+
+* Reproducible infrastructure
+* Version-controlled infrastructure changes
+* Plan before apply
+* Clear resource ownership
+* Standard tool for AWS infrastructure
+
+## Consequences
+
+* Requires Terraform knowledge
+* State management needed (S3 backend)
+* Infrastructure changes go through PR review
