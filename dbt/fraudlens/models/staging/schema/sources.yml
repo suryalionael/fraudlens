@@ -1,0 +1,108 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw transaction data ingested from Nigerian Financial Transactions and Fraud Detection Dataset"
+    tables:
+      - name: transactions
+        description: "Raw transaction records - 5M rows, 21 columns"
+        columns:
+          - name: transaction_id
+            description: "Unique transaction identifier"
+            data_tests:
+              - unique
+              - not_null
+          - name: timestamp
+            description: "Transaction timestamp"
+            data_tests:
+              - not_null
+          - name: sender_account
+            description: "Sender account identifier"
+            data_tests:
+              - not_null
+          - name: receiver_account
+            description: "Receiver account identifier"
+            data_tests:
+              - not_null
+          - name: transaction_type
+            description: "Type of transaction (deposit, withdrawal, transfer, payment)"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  values: ['deposit', 'withdrawal', 'transfer', 'payment']
+          - name: merchant_category
+            description: "Merchant category"
+            data_tests:
+              - not_null
+          - name: location
+            description: "Transaction location"
+            data_tests:
+              - not_null
+          - name: device_used
+            description: "Device type used for transaction"
+            data_tests:
+              - not_null
+          - name: is_fraud
+            description: "Fraud label (True/False)"
+            data_tests:
+              - not_null
+          - name: amount_ngn
+            description: "Transaction amount in Nigerian Naira"
+            data_tests:
+              - not_null
+          - name: payment_channel
+            description: "Payment channel used"
+            data_tests:
+              - not_null
+          - name: ip_address
+            description: "IP address of transaction"
+            data_tests:
+              - not_null
+          - name: device_hash
+            description: "Device hash identifier"
+            data_tests:
+              - not_null
+          - name: bvn_linked
+            description: "Whether BVN is linked"
+            data_tests:
+              - not_null
+          - name: new_device_transaction
+            description: "Whether this is a new device transaction"
+            data_tests:
+              - not_null
+          - name: sender_persona
+            description: "Sender persona type"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  values: ['Trader', 'Student', 'Salary Earner', 'Business Owner']
+          - name: fraud_type
+            description: "Type of fraud if applicable"
+          - name: time_since_last_transaction
+            description: "Time since last transaction (PRECOMPUTED - NOT TRUSTED)"
+          - name: spending_deviation_score
+            description: "Spending deviation score (PRECOMPUTED - NOT TRUSTED)"
+          - name: velocity_score
+            description: "Velocity score (PRECOMPUTED - NOT TRUSTED)"
+          - name: geo_anomaly_score
+            description: "Geographic anomaly score (PRECOMPUTED - NOT TRUSTED)"
+
+      - name: ingestion_runs
+        description: "Ingestion run metadata for reproducibility"
+        columns:
+          - name: ingestion_run_id
+            description: "Unique ingestion run identifier"
+            data_tests:
+              - unique
+              - not_null
+          - name: source_file
+            description: "Source file path"
+            data_tests:
+              - not_null
+          - name: status
+            description: "Ingestion status"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  values: ['SUCCESS', 'FAILED', 'running']

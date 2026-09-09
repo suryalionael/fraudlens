@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: "Staging model for raw transaction data"
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: timestamp
+        description: "Transaction timestamp"
+        data_tests:
+          - not_null
+      - name: sender_account
+        description: "Sender account identifier"
+        data_tests:
+          - not_null
+      - name: receiver_account
+        description: "Receiver account identifier"
+        data_tests:
+          - not_null
+      - name: transaction_type
+        description: "Type of transaction"
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['deposit', 'withdrawal', 'transfer', 'payment']
+      - name: merchant_category
+        description: "Merchant category"
+        data_tests:
+          - not_null
+      - name: location
+        description: "Transaction location"
+        data_tests:
+          - not_null
+      - name: device_used
+        description: "Device type used"
+        data_tests:
+          - not_null
+      - name: is_fraud
+        description: "Fraud label"
+        data_tests:
+          - not_null
+      - name: amount_ngn
+        description: "Transaction amount in NGN"
+        data_tests:
+          - not_null
