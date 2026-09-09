@@ -265,6 +265,10 @@ Transactions are ranked by risk score for investigation prioritization.
 
 # Phase 6 — API
 
+### Status
+
+✅ COMPLETE
+
 ### Objective
 
 Make risk scoring programmatically accessible.
@@ -278,9 +282,58 @@ Make risk scoring programmatically accessible.
 * response schemas;
 * API tests.
 
+### Implementation
+
+* Python module: `src/fraudlens/api/app.py`
+* 8 API tests (all passing)
+
+### Endpoints
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/health` | GET | Health check |
+| `/score-transaction` | POST | Score a transaction for fraud risk |
+| `/docs` | GET | OpenAPI documentation |
+| `/redoc` | GET | ReDoc documentation |
+
+### Request Schema
+
+```json
+{
+  "transaction_id": "T123456",
+  "sender_account": "ACC001",
+  "receiver_account": "ACC002",
+  "transaction_type": "transfer",
+  "merchant_category": "electronics",
+  "location": "Lagos",
+  "device_used": "mobile",
+  "amount_ngn": 50000.00,
+  "payment_channel": "Bank Transfer",
+  "ip_address": "192.168.1.1",
+  "device_hash": "D1234567",
+  "sender_persona": "Trader"
+}
+```
+
+### Response Schema
+
+```json
+{
+  "transaction_id": "T123456",
+  "fraud_probability": 0.85,
+  "risk_score": 78.5,
+  "risk_level": "high",
+  "recommended_action": "review",
+  "risk_factors": ["amount_anomaly", "new_device"],
+  "model_version": "fraudlens-lr-v001",
+  "risk_engine_version": "001",
+  "scored_at": "2024-01-01T00:00:00"
+}
+```
+
 ### Exit Criteria
 
-A transaction can be submitted to the API and receive a validated risk response.
+✅ A transaction can be submitted to the API and receive a validated risk response.
 
 ---
 
