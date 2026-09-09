@@ -1,0 +1,16 @@
+# Copy this to terraform.tfvars and fill in values
+# NEVER commit terraform.tfvars with real credentials
+
+aws_region         = "us-east-1"
+environment        = "prod"
+db_name            = "fraudlens"
+db_username        = "fraudlens"
+db_password        = "CHANGE_ME_TO_A_STRONG_PASSWORD"
+db_instance_class  = "db.t3.micro"
+db_allocated_storage = 20
+api_cpu            = 256
+api_memory         = 512
+dashboard_cpu      = 256
+dashboard_memory   = 512
+desired_count      = 1
+log_retention_days = 30
