@@ -203,7 +203,7 @@ Future technologies will only be introduced when they solve a demonstrated probl
 
 Current stage:
 
-> **Phase 6 — API**
+> **Phase 7 — Dashboard (COMPLETE)**
 
 | Phase | Status |
 | --- | --- |
@@ -215,7 +215,7 @@ Current stage:
 | Phase 4 — Modeling | COMPLETE |
 | Phase 5 — Risk Engine | COMPLETE |
 | Phase 6 — API | COMPLETE |
-| Phase 7 — Dashboard | NOT STARTED |
+| Phase 7 — Dashboard | COMPLETE |
 
 ### Dataset
 
