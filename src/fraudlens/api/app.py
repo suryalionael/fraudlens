@@ -26,10 +26,28 @@ from fraudlens.risk.engine import RiskEngine
 
 logger = logging.getLogger(__name__)
 
-# Default model artifact path
+# Model artifact path — supports local paths and S3 URIs
 DEFAULT_MODEL_PATH = os.environ.get(
     "FRAUDLENS_MODEL_PATH", "models/random_forest.artifact.pkl"
 )
+
+# S3 model loading (alternative to local path)
+MODEL_S3_BUCKET = os.environ.get("FRAUDLENS_MODEL_S3_BUCKET", "")
+MODEL_S3_KEY = os.environ.get("FRAUDLENS_MODEL_S3_KEY", "")
+
+
+def _resolve_model_path() -> str:
+    """Resolve model path from environment variables."""
+    # Prefer explicit FRAUDLENS_MODEL_PATH if set
+    explicit = os.environ.get("FRAUDLENS_MODEL_PATH", "")
+    if explicit:
+        return explicit
+
+    # Check S3 configuration
+    if MODEL_S3_BUCKET and MODEL_S3_KEY:
+        return f"s3://{MODEL_S3_BUCKET}/{MODEL_S3_KEY}"
+
+    return DEFAULT_MODEL_PATH
 
 
 # Request/Response schemas
@@ -163,11 +181,14 @@ def create_app(
     configure_logging()
 
     # Load model artifact
-    resolved_path = Path(model_path) if model_path else Path(DEFAULT_MODEL_PATH)
+    resolved_path = _resolve_model_path() if model_path is None else str(model_path)
     artifact: ModelArtifact | None = None
     model_loaded = False
 
-    if resolved_path.exists():
+    is_s3 = resolved_path.startswith("s3://")
+    path_exists = is_s3 or Path(resolved_path).exists()
+
+    if path_exists:
         try:
             artifact = load_model_artifact(resolved_path)
             model_loaded = True

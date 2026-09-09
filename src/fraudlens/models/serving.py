@@ -180,15 +180,21 @@ def train_and_persist_model(
 def load_model_artifact(artifact_path: str | Path) -> ModelArtifact:
     """Load a trained model artifact from disk.
 
+    Supports both local paths and S3 URIs (s3://bucket/key).
+
     Args:
-        artifact_path: Path to the .artifact.pkl file.
+        artifact_path: Path to the .artifact.pkl file or S3 URI.
 
     Returns:
         ModelArtifact with model, scaler, and metadata.
-
-    Raises:
-        FileNotFoundError: If artifact file does not exist.
     """
+    path_str = str(artifact_path)
+
+    # S3 loading
+    if path_str.startswith("s3://"):
+        return _load_from_s3(path_str)
+
+    # Local loading
     artifact_path = Path(artifact_path)
     if not artifact_path.exists():
         raise FileNotFoundError(
@@ -202,6 +208,42 @@ def load_model_artifact(artifact_path: str | Path) -> ModelArtifact:
     if not isinstance(artifact, ModelArtifact):
         raise ValueError(f"Invalid artifact format in {artifact_path}")
 
+    return artifact
+
+
+def _load_from_s3(s3_uri: str) -> ModelArtifact:
+    """Load a model artifact from S3.
+
+    Args:
+        s3_uri: S3 URI in format s3://bucket/key.
+
+    Returns:
+        ModelArtifact with model, scaler, and metadata.
+    """
+    import boto3
+    import tempfile
+
+    # Parse s3://bucket/key
+    parts = s3_uri.replace("s3://", "").split("/", 1)
+    if len(parts) != 2:
+        raise ValueError(f"Invalid S3 URI: {s3_uri}")
+
+    bucket, key = parts
+
+    logger.info("Loading model from S3: s3://%s/%s", bucket, key)
+
+    s3 = boto3.client("s3")
+
+    with tempfile.NamedTemporaryFile(suffix=".pkl") as tmp:
+        s3.download_file(bucket, key, tmp.name)
+
+        with open(tmp.name, "rb") as f:
+            artifact = pickle.load(f)  # noqa: S301
+
+    if not isinstance(artifact, ModelArtifact):
+        raise ValueError(f"Invalid artifact format in S3 object {s3_uri}")
+
+    logger.info("Loaded model from S3: %s", artifact.model_version)
     return artifact
 
 
