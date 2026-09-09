@@ -1,0 +1,123 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_API_REPO: fraudlens-prod-api
+  ECR_DASHBOARD_REPO: fraudlens-prod-dashboard
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: PYTHONPATH=src python -m pytest tests/ -v --tb=short
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      api_image: ${{ steps.meta-api.outputs.tags }}
+      dashboard_image: ${{ steps.meta-dashboard.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: api
+          push: true
+          tags: |
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_API_REPO }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_API_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Dashboard image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: dashboard
+          push: true
+          tags: |
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_DASHBOARD_REPO }}:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_DASHBOARD_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-ecs:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS API service
+        run: |
+          aws ecs update-service \
+            --cluster fraudlens-prod-cluster \
+            --service fraudlens-prod-api \
+            --force-new-deployment
+
+      - name: Update ECS Dashboard service
+        run: |
+          aws ecs update-service \
+            --cluster fraudlens-prod-cluster \
+            --service fraudlens-prod-dashboard \
+            --force-new-deployment
+
+      - name: Wait for API stabilization
+        run: |
+          aws ecs wait services-stable \
+            --cluster fraudlens-prod-cluster \
+            --services fraudlens-prod-api
+
+      - name: Wait for Dashboard stabilization
+        run: |
+          aws ecs wait services-stable \
+            --cluster fraudlens-prod-cluster \
+            --services fraudlens-prod-dashboard
+
+      - name: Verify API health
+        run: |
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names fraudlens-prod-alb \
+            --query "LoadBalancers[0].DNSName" \
+            --output text)
+          echo "ALB: $ALB_DNS"
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "API health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, retrying..."
+            sleep 10
+          done
+          echo "API health check failed after 10 attempts"
+          exit 1

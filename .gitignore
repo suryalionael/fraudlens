@@ -52,3 +52,10 @@ models/*.pt
 
 # HuggingFace cache
 .cache/
+
+# Terraform
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
