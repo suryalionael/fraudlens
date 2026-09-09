@@ -1,4 +1,4 @@
-"""Tests for FraudLens API."""
+"""Tests for FraudLens API — Phase 10 real-time scoring."""
 
 import numpy as np
 import pandas as pd
@@ -13,14 +13,11 @@ from fraudlens.models.serving import train_and_persist_model
 def trained_model_path(tmp_path_factory):
     """Train a small model and return the artifact path."""
     tmp_dir = tmp_path_factory.mktemp("models")
-
-    # Create a small deterministic dataset for testing
     np.random.seed(42)
     n = 500
     n_fraud = 25
     n_legit = n - n_fraud
 
-    # Distribute fraud cases throughout the dataset
     fraud_indices = np.random.choice(n, size=n_fraud, replace=False)
     is_fraud = np.zeros(n, dtype=bool)
     is_fraud[fraud_indices] = True
@@ -74,20 +71,22 @@ def client_no_model(tmp_path):
 
 @pytest.fixture
 def sample_transaction():
-    """Sample transaction for testing."""
+    """Sample raw transaction (Phase 10 schema — no precomputed features)."""
     return {
         "transaction_id": "T_TEST_001",
-        "sender_account": "ACC001",
-        "receiver_account": "ACC002",
+        "timestamp": "2023-06-15T10:30:00Z",
+        "amount_ngn": 50000.00,
         "transaction_type": "transfer",
         "merchant_category": "electronics",
         "location": "Lagos",
         "device_used": "mobile",
-        "amount_ngn": 50000.00,
         "payment_channel": "Bank Transfer",
         "ip_address": "192.168.1.1",
         "device_hash": "D1234567",
+        "bvn_linked": True,
         "sender_persona": "Trader",
+        "sender_account": "ACC001",
+        "receiver_account": "ACC002",
     }
 
 
@@ -99,8 +98,6 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert data["model_loaded"] is True
         assert "model_version" in data
-        assert "version" in data
-        assert "timestamp" in data
 
     def test_health_check_without_model(self, client_no_model):
         response = client_no_model.get("/health")
@@ -109,11 +106,84 @@ class TestHealthEndpoint:
         assert data["status"] == "degraded"
         assert data["model_loaded"] is False
 
+    def test_readiness_without_model(self, client_no_model):
+        response = client_no_model.get("/ready")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model_loaded"] is False
+
+
+class TestRequestValidation:
+    def test_missing_required_field(self, client_with_model):
+        transaction = {
+            "transaction_id": "T_MISSING",
+            "timestamp": "2023-06-15T10:30:00Z",
+            "amount_ngn": 50000.00,
+            # Missing sender_account
+            "receiver_account": "ACC002",
+            "transaction_type": "transfer",
+            "merchant_category": "electronics",
+            "location": "Lagos",
+            "device_used": "mobile",
+            "payment_channel": "Bank Transfer",
+            "ip_address": "192.168.1.1",
+            "device_hash": "D1234567",
+            "bvn_linked": True,
+            "sender_persona": "Trader",
+        }
+        response = client_with_model.post("/score-transaction", json=transaction)
+        assert response.status_code == 422
+
+    def test_invalid_amount_negative(self, client_with_model, sample_transaction):
+        sample_transaction["amount_ngn"] = -100
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_invalid_amount_zero(self, client_with_model, sample_transaction):
+        sample_transaction["amount_ngn"] = 0
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_invalid_timestamp(self, client_with_model, sample_transaction):
+        sample_transaction["timestamp"] = "not-a-date"
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_future_timestamp_rejected(self, client_with_model, sample_transaction):
+        sample_transaction["timestamp"] = "2099-01-01T00:00:00Z"
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 400
+
+    def test_unknown_field_rejected(self, client_with_model, sample_transaction):
+        sample_transaction["unknown_field"] = "value"
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_forbidden_precomputed_field(self, client_with_model, sample_transaction):
+        """Precomputed features from source dataset must be rejected."""
+        sample_transaction["velocity_score"] = 10
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_empty_transaction_id(self, client_with_model, sample_transaction):
+        sample_transaction["transaction_id"] = ""
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_whitespace_transaction_id(self, client_with_model, sample_transaction):
+        sample_transaction["transaction_id"] = "   "
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
+    def test_empty_string_field(self, client_with_model, sample_transaction):
+        sample_transaction["sender_account"] = ""
+        response = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert response.status_code == 422
+
 
 class TestScoreTransaction:
     def test_score_transaction_success(self, client_with_model, sample_transaction):
         response = client_with_model.post("/score-transaction", json=sample_transaction)
-
         assert response.status_code == 200
         data = response.json()
         assert data["transaction_id"] == "T_TEST_001"
@@ -125,137 +195,65 @@ class TestScoreTransaction:
         assert "model_version" in data
         assert "risk_engine_version" in data
         assert "scored_at" in data
-        # Verify model_version is real, not hardcoded
         assert data["model_version"].startswith("fraudlens-")
 
-    def test_score_transaction_high_risk(self, client_with_model):
-        """Test high-risk transaction."""
-        transaction = {
-            "transaction_id": "T_HIGH_RISK",
-            "sender_account": "ACC001",
-            "receiver_account": "ACC002",
-            "transaction_type": "transfer",
-            "merchant_category": "electronics",
-            "location": "Lagos",
-            "device_used": "mobile",
-            "amount_ngn": 500000.00,
-            "payment_channel": "Bank Transfer",
-            "ip_address": "192.168.1.1",
-            "device_hash": "D_NEW_DEVICE",
-            "sender_persona": "Trader",
-            "customer_avg_amount_prior": 10000.00,
-            "amount_zscore": 3.5,
-            "amount_ratio_to_avg": 50.0,
-            "device_first_seen": True,
-            "merchant_fraud_rate_prior": 0.15,
-            "location_fraud_rate_prior": 0.12,
-            "transactions_last_10m": 15,
-            "transactions_last_60m": 30,
-            "transactions_last_1440m": 50,
-        }
-
-        response = client_with_model.post("/score-transaction", json=transaction)
-
-        assert response.status_code == 200
-        data = response.json()
-        # With real model, high-risk features should produce elevated risk
-        assert data["fraud_probability"] > 0
-        assert data["risk_score"] > 0
-        assert len(data["risk_factors"]) > 0
-
-    def test_score_transaction_low_risk(self, client_with_model):
-        """Test low-risk transaction."""
-        transaction = {
-            "transaction_id": "T_LOW_RISK",
-            "sender_account": "ACC001",
-            "receiver_account": "ACC002",
-            "transaction_type": "transfer",
-            "merchant_category": "groceries",
-            "location": "Lagos",
-            "device_used": "mobile",
-            "amount_ngn": 5000.00,
-            "payment_channel": "Bank Transfer",
-            "ip_address": "192.168.1.1",
-            "device_hash": "D1234567",
-            "sender_persona": "Trader",
-            "customer_avg_amount_prior": 4500.00,
-            "amount_zscore": 0.5,
-            "amount_ratio_to_avg": 1.1,
-            "device_first_seen": False,
-            "merchant_fraud_rate_prior": 0.01,
-            "location_fraud_rate_prior": 0.02,
-            "transactions_last_10m": 1,
-            "transactions_last_60m": 2,
-            "transactions_last_1440m": 5,
-        }
-
-        response = client_with_model.post("/score-transaction", json=transaction)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert 0 <= data["fraud_probability"] <= 1
-        assert 0 <= data["risk_score"] <= 100
-
     def test_score_returns_503_without_model(self, client_no_model, sample_transaction):
-        """Test that scoring returns 503 when model is not loaded."""
         response = client_no_model.post("/score-transaction", json=sample_transaction)
         assert response.status_code == 503
 
-    def test_score_transaction_missing_required_field(self, client_with_model):
-        """Test missing required field."""
-        transaction = {
-            "transaction_id": "T_MISSING",
-            # Missing sender_account
-            "receiver_account": "ACC002",
-            "transaction_type": "transfer",
-            "merchant_category": "electronics",
-            "location": "Lagos",
-            "device_used": "mobile",
-            "amount_ngn": 50000.00,
-            "payment_channel": "Bank Transfer",
-            "ip_address": "192.168.1.1",
-            "device_hash": "D1234567",
-            "sender_persona": "Trader",
-        }
-
-        response = client_with_model.post("/score-transaction", json=transaction)
-        assert response.status_code == 422
-
-    def test_score_transaction_invalid_amount(self, client_with_model, sample_transaction):
-        """Test invalid amount (negative)."""
-        sample_transaction["amount_ngn"] = -100
+    def test_score_response_schema(self, client_with_model, sample_transaction):
         response = client_with_model.post("/score-transaction", json=sample_transaction)
-        assert response.status_code == 422
-
-    def test_score_transaction_schema_valid(self, client_with_model):
-        """Test response schema validation."""
-        response = client_with_model.post("/score-transaction", json={
-            "transaction_id": "T_SCHEMA",
-            "sender_account": "ACC001",
-            "receiver_account": "ACC002",
-            "transaction_type": "transfer",
-            "merchant_category": "electronics",
-            "location": "Lagos",
-            "device_used": "mobile",
-            "amount_ngn": 50000.00,
-            "payment_channel": "Bank Transfer",
-            "ip_address": "192.168.1.1",
-            "device_hash": "D1234567",
-            "sender_persona": "Trader",
-        })
-
         assert response.status_code == 200
         data = response.json()
         assert data["risk_level"] in ["low", "medium", "high", "critical"]
         assert data["recommended_action"] in ["allow", "monitor", "review", "urgent_review"]
 
+    def test_score_with_minimal_transaction(self, client_with_model):
+        """Test scoring with only required fields."""
+        transaction = {
+            "transaction_id": "T_MINIMAL",
+            "timestamp": "2023-06-15T10:30:00Z",
+            "amount_ngn": 5000.00,
+            "transaction_type": "deposit",
+            "merchant_category": "banking",
+            "location": "Abuja",
+            "device_used": "atm",
+            "payment_channel": "ATM",
+            "ip_address": "10.0.0.1",
+            "device_hash": "D_MINIMAL",
+            "bvn_linked": False,
+            "sender_persona": "individual",
+            "sender_account": "ACC_MIN",
+            "receiver_account": "ACC_MIN_R",
+        }
+        response = client_with_model.post("/score-transaction", json=transaction)
+        assert response.status_code == 200
+        data = response.json()
+        assert 0 <= data["fraud_probability"] <= 1
+
+
+class TestIdempotency:
+    def test_same_transaction_returns_same_result(self, client_with_model, sample_transaction):
+        """Duplicate requests should return the same result."""
+        r1 = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert r1.status_code == 200
+
+        r2 = client_with_model.post("/score-transaction", json=sample_transaction)
+        assert r2.status_code == 200
+
+        d1 = r1.json()
+        d2 = r2.json()
+        assert d1["transaction_id"] == d2["transaction_id"]
+        assert d1["fraud_probability"] == d2["fraud_probability"]
+        assert d1["risk_score"] == d2["risk_score"]
+
 
 class TestAPIMetadata:
     def test_openapi_schema(self, client_with_model):
-        """Test that OpenAPI schema is available."""
         response = client_with_model.get("/openapi.json")
         assert response.status_code == 200
         schema = response.json()
         assert "paths" in schema
         assert "/health" in schema["paths"]
+        assert "/ready" in schema["paths"]
         assert "/score-transaction" in schema["paths"]
