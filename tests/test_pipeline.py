@@ -84,3 +84,12 @@ class TestIngestionPipeline:
         pipeline = IngestionPipeline(db_config=self.config, chunk_size=10)
         report = pipeline.run(SAMPLE_CSV, replace=True)
         assert len(report.source_sha256) == 64
+
+    def test_report_has_required_fields(self):
+        pipeline = IngestionPipeline(db_config=self.config, chunk_size=10)
+        report = pipeline.run(SAMPLE_CSV, replace=True)
+        assert report.source_file
+        assert report.rows_read == 5
+        assert report.rows_loaded == 5
+        assert report.fraud_count == 1
+        assert report.status == "SUCCESS"
