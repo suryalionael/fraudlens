@@ -203,7 +203,7 @@ Future technologies will only be introduced when they solve a demonstrated probl
 
 Current stage:
 
-> **Phase 4 — Machine Learning**
+> **Phase 5 — Risk Intelligence**
 
 | Phase | Status |
 | --- | --- |
@@ -213,7 +213,7 @@ Current stage:
 | Phase 2 — Data Modeling | COMPLETE |
 | Phase 3 — Feature Engineering | COMPLETE |
 | Phase 4 — Modeling | COMPLETE |
-| Phase 5 — Risk Engine | NOT STARTED |
+| Phase 5 — Risk Engine | COMPLETE |
 | Phase 6 — API | NOT STARTED |
 | Phase 7 — Dashboard | NOT STARTED |
 

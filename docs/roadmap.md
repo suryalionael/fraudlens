@@ -211,6 +211,10 @@ Develop and evaluate fraud models.
 
 # Phase 5 — Risk Intelligence
 
+### Status
+
+✅ COMPLETE
+
 ### Objective
 
 Turn predictions into operational risk decisions.
@@ -224,9 +228,38 @@ Turn predictions into operational risk decisions.
 * SHAP explanations;
 * threshold analysis.
 
+### Implementation
+
+* Python module: `src/fraudlens/risk/engine.py`
+* Rules engine: `src/fraudlens/risk/rules.py`
+* 18 unit tests (all passing)
+
+### Risk Scoring
+
+* Risk score: 0-100 (ML 70% + Rules 30%)
+* Risk levels: Low (0-29), Medium (30-59), High (60-79), Critical (80-100)
+* Actions: allow, monitor, review, urgent_review
+
+### Rules Implemented
+
+| Rule | Severity | Score |
+| --- | --- | --- |
+| new_device | high | 20 |
+| amount_anomaly | high | 25 |
+| high_amount_ratio | medium | 15 |
+| velocity_anomaly | high | 20 |
+| high_risk_merchant | medium | 15 |
+| high_risk_location | medium | 15 |
+| first_transaction | low | 10 |
+| high_frequency_sender | medium | 10 |
+
+### Investigation Queue
+
+Transactions are ranked by risk score for investigation prioritization.
+
 ### Exit Criteria
 
-A transaction can be ranked and explained.
+✅ A transaction can be ranked and explained.
 
 ---
 
