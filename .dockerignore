@@ -1,0 +1,67 @@
+# Data
+data/raw/
+*.csv
+!tests/fixtures/*.csv
+*.parquet
+*.zip
+*.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Model artifacts (generated, not committed)
+models/*.joblib
+models/*.pkl
+models/*.bin
+models/*.pt
+models/*.metadata.json
+
+# HuggingFace cache
+.cache/
+
+# dbt
+dbt/fraudlens/target/
+dbt/fraudlens/dbt_packages/
+dbt/fraudlens/.user.yml
+
+# Docker
+docker-compose.override.yml
+
+# Git
+.git/
+.github/
