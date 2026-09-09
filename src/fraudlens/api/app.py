@@ -1,17 +1,34 @@
 """FastAPI application for FraudLens risk scoring.
 
 This module provides the REST API for transaction risk scoring.
+The API uses a trained ML model (not heuristics) for fraud probability estimation.
 """
 
 from __future__ import annotations
 
+import logging
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
-from fraudlens.risk.engine import RiskEngine, RiskConfig
+from fraudlens.features.preparation import (
+    MODEL_FEATURES,
+    prepare_features_from_transaction,
+)
+from fraudlens.models.explainer import explain_prediction, format_explanation_for_api
+from fraudlens.models.serving import ModelArtifact, load_model_artifact, predict_probability
+from fraudlens.risk.engine import RiskEngine
+
+logger = logging.getLogger(__name__)
+
+# Default model artifact path
+DEFAULT_MODEL_PATH = os.environ.get(
+    "FRAUDLENS_MODEL_PATH", "models/random_forest.artifact.pkl"
+)
 
 
 # Request/Response schemas
@@ -31,21 +48,28 @@ class TransactionRequest(BaseModel):
     device_hash: str = Field(..., description="Device hash")
     sender_persona: str = Field(..., description="Sender persona type")
 
-    # Feature fields (optional, will be computed if not provided)
+    # Behavioral features (computed by feature pipeline, provided at scoring time)
     customer_transaction_count_prior: int = Field(0, ge=0)
-    customer_avg_amount_prior: float = Field(0, ge=0)
-    customer_std_amount_prior: float = Field(0, ge=0)
-    customer_max_amount_prior: float = Field(0, ge=0)
+    customer_avg_amount_prior: float = Field(0.0, ge=0)
+    customer_std_amount_prior: float = Field(0.0, ge=0)
+    customer_max_amount_prior: float = Field(0.0, ge=0)
     amount_ratio_to_avg: float = Field(1.0, ge=0)
     amount_zscore: float = Field(0.0)
+    merchant_transaction_count_prior: int = Field(0, ge=0)
     merchant_fraud_rate_prior: float = Field(0.0, ge=0, le=1)
+    location_transaction_count_prior: int = Field(0, ge=0)
     location_fraud_rate_prior: float = Field(0.0, ge=0, le=1)
+    device_transaction_count_prior: int = Field(0, ge=0)
     device_first_seen: bool = Field(False)
-    transactions_last_1h: int = Field(0, ge=0)
-    customer_transactions_per_day: float = Field(0, ge=0)
+    transactions_last_10m: int = Field(0, ge=0)
+    transactions_last_60m: int = Field(0, ge=0)
+    transactions_last_1440m: int = Field(0, ge=0)
+    hour_of_day: int = Field(0, ge=0, le=23)
+    day_of_week: int = Field(0, ge=0, le=6)
+    is_weekend: int = Field(0, ge=0, le=1)
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "transaction_id": "T123456",
                 "sender_account": "ACC001",
@@ -61,13 +85,16 @@ class TransactionRequest(BaseModel):
                 "sender_persona": "Trader",
             }
         }
+    }
 
 
-class RiskFactor(BaseModel):
-    """Risk factor in the response."""
+class ExplanationItem(BaseModel):
+    """Single feature explanation."""
 
-    factor: str
-    description: str
+    feature: str
+    shap_value: float
+    direction: str
+    magnitude: float
 
 
 class TransactionResponse(BaseModel):
@@ -89,6 +116,8 @@ class HealthResponse(BaseModel):
 
     status: str
     version: str
+    model_loaded: bool
+    model_version: str
     timestamp: str
 
 
@@ -99,11 +128,14 @@ class ErrorResponse(BaseModel):
     detail: str
 
 
-# Application
-def create_app(config: dict[str, Any] | None = None) -> FastAPI:
+def create_app(
+    model_path: str | Path | None = None,
+    config: dict[str, Any] | None = None,
+) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Args:
+        model_path: Path to the trained model artifact. If None, uses env var or default.
         config: Optional configuration dictionary.
 
     Returns:
@@ -117,19 +149,33 @@ def create_app(config: dict[str, Any] | None = None) -> FastAPI:
         redoc_url="/redoc",
     )
 
+    # Load model artifact
+    resolved_path = Path(model_path) if model_path else Path(DEFAULT_MODEL_PATH)
+    artifact: ModelArtifact | None = None
+    model_loaded = False
+
+    if resolved_path.exists():
+        try:
+            artifact = load_model_artifact(resolved_path)
+            model_loaded = True
+            logger.info("Loaded model: %s from %s", artifact.model_version, resolved_path)
+        except Exception as e:
+            logger.error("Failed to load model from %s: %s", resolved_path, e)
+    else:
+        logger.warning("Model artifact not found at %s. API will return 503.", resolved_path)
+
     # Initialize risk engine
     risk_engine = RiskEngine()
-
-    # Model metadata (would be loaded from trained model in production)
-    MODEL_VERSION = "fraudlens-lr-v001"
     RISK_ENGINE_VERSION = "001"
 
     @app.get("/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
         """Health check endpoint."""
         return HealthResponse(
-            status="ok",
+            status="ok" if model_loaded else "degraded",
             version="0.1.0",
+            model_loaded=model_loaded,
+            model_version=artifact.model_version if artifact else "none",
             timestamp=datetime.now().isoformat(),
         )
 
@@ -139,6 +185,7 @@ def create_app(config: dict[str, Any] | None = None) -> FastAPI:
         responses={
             400: {"model": ErrorResponse},
             422: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
             500: {"model": ErrorResponse},
         },
     )
@@ -148,94 +195,59 @@ def create_app(config: dict[str, Any] | None = None) -> FastAPI:
         This endpoint accepts transaction details and returns a risk assessment
         including fraud probability, risk score, risk level, and recommended action.
         """
+        if not model_loaded or artifact is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Model not loaded. Train a model first.",
+            )
+
         try:
             # Convert request to dictionary
             transaction = request.model_dump()
 
-            # Use a simple heuristic for fraud probability
-            # In production, this would use the trained ML model
-            fraud_probability = _estimate_fraud_probability(transaction)
+            # Prepare features using shared preparation (ensures parity with training)
+            features = prepare_features_from_transaction(transaction, artifact.feature_columns)
 
-            # Assess risk
-            result = risk_engine.assess_transaction(transaction, fraud_probability)
+            # Get fraud probability from the ACTUAL trained model
+            fraud_probability = predict_probability(artifact, features)
+
+            # Generate SHAP explanations
+            import pandas as pd
+
+            X_explain = pd.DataFrame([features], columns=artifact.feature_columns)
+            explanations = explain_prediction(
+                artifact.model, artifact.feature_columns, X_explain, top_k=5
+            )
+
+            # Assess risk using real model probability + rules
+            risk_result = risk_engine.assess_transaction(transaction, fraud_probability)
+
+            # Combine rule-based factors with SHAP explanations
+            shap_factors = format_explanation_for_api(explanations)
+            all_risk_factors = risk_result.risk_factors + shap_factors
 
             return TransactionResponse(
-                transaction_id=result.transaction_id,
-                fraud_probability=round(result.fraud_probability, 4),
-                risk_score=result.risk_score,
-                risk_level=result.risk_level,
-                recommended_action=result.recommended_action,
-                risk_factors=result.risk_factors,
-                model_version=MODEL_VERSION,
+                transaction_id=risk_result.transaction_id,
+                fraud_probability=round(fraud_probability, 4),
+                risk_score=risk_result.risk_score,
+                risk_level=risk_result.risk_level,
+                recommended_action=risk_result.recommended_action,
+                risk_factors=all_risk_factors,
+                model_version=artifact.model_version,
                 risk_engine_version=RISK_ENGINE_VERSION,
                 scored_at=datetime.now().isoformat(),
             )
 
+        except HTTPException:
+            raise
         except Exception as e:
+            logger.error("Risk scoring failed: %s", e, exc_info=True)
             raise HTTPException(
                 status_code=500,
-                detail=f"Risk scoring failed: {str(e)}",
+                detail=f"Risk scoring failed: {type(e).__name__}",
             )
 
     return app
-
-
-def _estimate_fraud_probability(transaction: dict[str, Any]) -> float:
-    """Estimate fraud probability using heuristics.
-
-    In production, this would use the trained ML model.
-    This is a simplified version for demonstration.
-    """
-    score = 0.0
-
-    # Amount-based signals
-    amount = transaction.get("amount_ngn", 0)
-    avg_amount = transaction.get("customer_avg_amount_prior", 0)
-    if avg_amount > 0:
-        amount_ratio = amount / avg_amount
-        if amount_ratio > 3:
-            score += 0.3
-        elif amount_ratio > 2:
-            score += 0.2
-        elif amount_ratio > 1.5:
-            score += 0.1
-
-    # Z-score signal
-    zscore = abs(transaction.get("amount_zscore", 0))
-    if zscore > 3:
-        score += 0.3
-    elif zscore > 2:
-        score += 0.2
-    elif zscore > 1.5:
-        score += 0.1
-
-    # Device signal
-    if transaction.get("device_first_seen", False):
-        score += 0.2
-
-    # Merchant risk
-    merchant_fraud_rate = transaction.get("merchant_fraud_rate_prior", 0)
-    if merchant_fraud_rate > 0.1:
-        score += 0.2
-    elif merchant_fraud_rate > 0.05:
-        score += 0.1
-
-    # Location risk
-    location_fraud_rate = transaction.get("location_fraud_rate_prior", 0)
-    if location_fraud_rate > 0.1:
-        score += 0.2
-    elif location_fraud_rate > 0.05:
-        score += 0.1
-
-    # Velocity signal
-    velocity = transaction.get("transactions_last_1h", 0)
-    if velocity > 10:
-        score += 0.2
-    elif velocity > 5:
-        score += 0.1
-
-    # Cap at 0.95
-    return min(score, 0.95)
 
 
 # Create default app instance
