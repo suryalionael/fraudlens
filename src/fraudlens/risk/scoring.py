@@ -16,7 +16,6 @@ from typing import Any
 import pandas as pd
 
 from fraudlens.features.preparation import (
-    MODEL_FEATURES,
     prepare_features_from_transaction,
 )
 from fraudlens.ingestion.postgres_loader import DBConfig
@@ -111,7 +110,9 @@ class RealtimeScoringService:
             "transaction_id": transaction_id,
             "amount_ngn": transaction["amount_ngn"],
             # Customer features from historical context
-            "customer_transaction_count_prior": historical["customer_transaction_count"],
+            "customer_transaction_count_prior": historical[
+                "customer_transaction_count"
+            ],
             "customer_avg_amount_prior": historical["customer_avg_amount"],
             "customer_std_amount_prior": historical["customer_std_amount"],
             "customer_max_amount_prior": historical["customer_max_amount"],
@@ -120,10 +121,14 @@ class RealtimeScoringService:
             "transactions_last_60m": historical["transactions_last_60m"],
             "transactions_last_1440m": historical["transactions_last_1440m"],
             # Merchant features
-            "merchant_transaction_count_prior": historical["merchant_transaction_count"],
+            "merchant_transaction_count_prior": historical[
+                "merchant_transaction_count"
+            ],
             "merchant_fraud_rate_prior": historical["merchant_fraud_rate"],
             # Location features
-            "location_transaction_count_prior": historical["location_transaction_count"],
+            "location_transaction_count_prior": historical[
+                "location_transaction_count"
+            ],
             "location_fraud_rate_prior": historical["location_fraud_rate"],
             # Device features
             "device_transaction_count_prior": historical["device_transaction_count"],
@@ -171,9 +176,7 @@ class RealtimeScoringService:
             **enriched,
             "transaction_id": transaction_id,
         }
-        risk_result = self.risk_engine.assess_transaction(
-            risk_input, fraud_probability
-        )
+        risk_result = self.risk_engine.assess_transaction(risk_input, fraud_probability)
 
         # 10. Combine risk factors
         all_risk_factors = risk_result.risk_factors + shap_factors
@@ -193,7 +196,9 @@ class RealtimeScoringService:
                 )
                 persisted = True
             except Exception as e:
-                logger.error("Failed to persist risk score for %s: %s", transaction_id, e)
+                logger.error(
+                    "Failed to persist risk score for %s: %s", transaction_id, e
+                )
                 raise
 
         logger.info(
@@ -251,9 +256,7 @@ class RealtimeScoringService:
         }
         self.risk_store.upsert_score(score)
 
-    def check_existing_score(
-        self, transaction_id: str
-    ) -> dict[str, Any] | None:
+    def check_existing_score(self, transaction_id: str) -> dict[str, Any] | None:
         """Check if a transaction has already been scored.
 
         Args:

@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
         is_valid, errors = validate_source_schema(input_path)
         if is_valid:
-            print(f"Schema validation: PASS")
+            print("Schema validation: PASS")
             print(f"File: {input_path}")
             print(f"Size: {input_path.stat().st_size / (1024 * 1024):.1f} MB")
         else:

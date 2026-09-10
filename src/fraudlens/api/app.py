@@ -22,10 +22,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from fraudlens.features.preparation import MODEL_FEATURES
 from fraudlens.logging_config import configure_logging
 from fraudlens.models.serving import ModelArtifact, load_model_artifact
-from fraudlens.risk.engine import RiskEngine
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +55,7 @@ def _resolve_model_path() -> str:
 
 # ── Request Schema (Phase 10 hardened) ──
 
+
 class TransactionRequest(BaseModel):
     """Request schema for real-time transaction scoring.
 
@@ -68,56 +67,72 @@ class TransactionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     transaction_id: str = Field(
-        ..., min_length=1, max_length=128,
+        ...,
+        min_length=1,
+        max_length=128,
         description="Unique transaction identifier",
     )
-    timestamp: str = Field(
-        ..., description="ISO 8601 transaction timestamp"
-    )
-    amount_ngn: float = Field(
-        ..., gt=0, description="Transaction amount in NGN"
-    )
+    timestamp: str = Field(..., description="ISO 8601 transaction timestamp")
+    amount_ngn: float = Field(..., gt=0, description="Transaction amount in NGN")
     transaction_type: str = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         description="Transaction type",
     )
     merchant_category: str = Field(
-        ..., min_length=1, max_length=100,
+        ...,
+        min_length=1,
+        max_length=100,
         description="Merchant category",
     )
     location: str = Field(
-        ..., min_length=1, max_length=100,
+        ...,
+        min_length=1,
+        max_length=100,
         description="Transaction location",
     )
     device_used: str = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         description="Device type used",
     )
     payment_channel: str = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         description="Payment channel",
     )
     ip_address: str = Field(
-        ..., min_length=1, max_length=45,
+        ...,
+        min_length=1,
+        max_length=45,
         description="IP address",
     )
     device_hash: str = Field(
-        ..., min_length=1, max_length=256,
+        ...,
+        min_length=1,
+        max_length=256,
         description="Device hash identifier",
     )
-    bvn_linked: bool = Field(
-        ..., description="Whether BVN is linked"
-    )
+    bvn_linked: bool = Field(..., description="Whether BVN is linked")
     sender_persona: str = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         description="Sender persona type",
     )
     sender_account: str = Field(
-        ..., min_length=1, max_length=128,
+        ...,
+        min_length=1,
+        max_length=128,
         description="Sender account identifier",
     )
     receiver_account: str = Field(
-        ..., min_length=1, max_length=128,
+        ...,
+        min_length=1,
+        max_length=128,
         description="Receiver account identifier",
     )
 
@@ -150,6 +165,7 @@ class TransactionRequest(BaseModel):
 
 
 # ── Response Schema ──
+
 
 class RiskFactor(BaseModel):
     """A single risk factor with explanation."""
@@ -205,6 +221,7 @@ class ReadyResponse(BaseModel):
 
 # ── Application Factory ──
 
+
 def create_app(
     model_path: str | Path | None = None,
     config: dict[str, Any] | None = None,
@@ -232,13 +249,13 @@ def create_app(
         try:
             artifact = load_model_artifact(resolved_path)
             model_loaded = True
-            logger.info("Loaded model: %s from %s", artifact.model_version, resolved_path)
+            logger.info(
+                "Loaded model: %s from %s", artifact.model_version, resolved_path
+            )
         except Exception as e:
             logger.error("Failed to load model from %s: %s", resolved_path, e)
     else:
         logger.warning("Model artifact not found at %s.", resolved_path)
-
-    risk_engine = RiskEngine()
 
     @app.get("/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
@@ -255,6 +272,7 @@ def create_app(
         db_reachable = False
         try:
             from fraudlens.dashboard.data.connection import get_connection
+
             conn = get_connection()
             conn.close()
             db_reachable = True
@@ -287,6 +305,7 @@ def create_app(
         """Score a transaction for fraud risk (Phase 10: real-time synchronous)."""
         request_id = raw_request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
         transaction_id = request.transaction_id
+        logger.info("Scoring request %s for transaction %s", request_id, transaction_id)
 
         # 1. Model check
         if not model_loaded or artifact is None:
@@ -311,6 +330,7 @@ def create_app(
         # 3. Idempotency check
         try:
             from fraudlens.risk.scoring import RealtimeScoringService
+
             scoring_service = RealtimeScoringService(artifact)
 
             existing = scoring_service.check_existing_score(transaction_id)
@@ -323,9 +343,13 @@ def create_app(
                     recommended_action=existing["recommended_action"],
                     risk_factors=[
                         RiskFactor(
-                            feature=f.get("feature", "unknown") if isinstance(f, dict) else "unknown",
+                            feature=f.get("feature", "unknown")
+                            if isinstance(f, dict)
+                            else "unknown",
                             impact=f.get("impact", 0) if isinstance(f, dict) else 0,
-                            direction=f.get("direction", "unknown") if isinstance(f, dict) else "unknown",
+                            direction=f.get("direction", "unknown")
+                            if isinstance(f, dict)
+                            else "unknown",
                         )
                         for f in (existing.get("risk_factors") or [])
                     ],
@@ -341,17 +365,21 @@ def create_app(
             # 5. Build response
             risk_factors = []
             for f in result.risk_result.risk_factors:
-                risk_factors.append(RiskFactor(
-                    feature=f[:200] if isinstance(f, str) else "unknown",
-                    impact=0.0,
-                    direction="HIGHER_RISK",
-                ))
+                risk_factors.append(
+                    RiskFactor(
+                        feature=f[:200] if isinstance(f, str) else "unknown",
+                        impact=0.0,
+                        direction="HIGHER_RISK",
+                    )
+                )
             for f in result.shap_factors:
-                risk_factors.append(RiskFactor(
-                    feature=f[:200] if isinstance(f, str) else "unknown",
-                    impact=0.0,
-                    direction="HIGHER_RISK",
-                ))
+                risk_factors.append(
+                    RiskFactor(
+                        feature=f[:200] if isinstance(f, str) else "unknown",
+                        impact=0.0,
+                        direction="HIGHER_RISK",
+                    )
+                )
 
             return TransactionResponse(
                 transaction_id=result.transaction_id,

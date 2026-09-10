@@ -16,7 +16,6 @@ def trained_model_path(tmp_path_factory):
     np.random.seed(42)
     n = 500
     n_fraud = 25
-    n_legit = n - n_fraud
 
     fraud_indices = np.random.choice(n, size=n_fraud, replace=False)
     is_fraud = np.zeros(n, dtype=bool)
@@ -51,7 +50,9 @@ def trained_model_path(tmp_path_factory):
     }
 
     df = pd.DataFrame(data)
-    artifact_path = train_and_persist_model(df, output_dir=str(tmp_dir), model_name="random_forest")
+    artifact_path = train_and_persist_model(
+        df, output_dir=str(tmp_dir), model_name="random_forest"
+    )
     return artifact_path
 
 
@@ -190,7 +191,12 @@ class TestScoreTransaction:
         assert 0 <= data["fraud_probability"] <= 1
         assert 0 <= data["risk_score"] <= 100
         assert data["risk_level"] in ["low", "medium", "high", "critical"]
-        assert data["recommended_action"] in ["allow", "monitor", "review", "urgent_review"]
+        assert data["recommended_action"] in [
+            "allow",
+            "monitor",
+            "review",
+            "urgent_review",
+        ]
         assert isinstance(data["risk_factors"], list)
         assert "model_version" in data
         assert "risk_engine_version" in data
@@ -206,7 +212,12 @@ class TestScoreTransaction:
         assert response.status_code == 200
         data = response.json()
         assert data["risk_level"] in ["low", "medium", "high", "critical"]
-        assert data["recommended_action"] in ["allow", "monitor", "review", "urgent_review"]
+        assert data["recommended_action"] in [
+            "allow",
+            "monitor",
+            "review",
+            "urgent_review",
+        ]
 
     def test_score_with_minimal_transaction(self, client_with_model):
         """Test scoring with only required fields."""
@@ -233,7 +244,9 @@ class TestScoreTransaction:
 
 
 class TestIdempotency:
-    def test_same_transaction_returns_same_result(self, client_with_model, sample_transaction):
+    def test_same_transaction_returns_same_result(
+        self, client_with_model, sample_transaction
+    ):
         """Duplicate requests should return the same result."""
         r1 = client_with_model.post("/score-transaction", json=sample_transaction)
         assert r1.status_code == 200

@@ -28,7 +28,9 @@ def trained_model_path(tmp_path_factory):
     """Train a small model and return the artifact path."""
     tmp_dir = tmp_path_factory.mktemp("models")
     df = _make_sample_df(n=300)
-    artifact_path = train_and_persist_model(df, output_dir=str(tmp_dir), model_name="random_forest")
+    artifact_path = train_and_persist_model(
+        df, output_dir=str(tmp_dir), model_name="random_forest"
+    )
     return artifact_path
 
 
@@ -36,7 +38,6 @@ def _make_sample_df(n: int = 200, seed: int = 42) -> pd.DataFrame:
     """Create a small deterministic DataFrame for testing."""
     np.random.seed(seed)
     n_fraud = max(int(n * 0.05), 2)
-    n_legit = n - n_fraud
 
     # Distribute fraud cases throughout the dataset (not all at the end)
     fraud_indices = np.random.choice(n, size=n_fraud, replace=False)
@@ -46,30 +47,32 @@ def _make_sample_df(n: int = 200, seed: int = 42) -> pd.DataFrame:
     amounts = np.random.lognormal(10, 1, n)
     amounts[is_fraud] = np.random.lognormal(11, 2, n_fraud)
 
-    return pd.DataFrame({
-        "transaction_id": [f"T{i:06d}" for i in range(n)],
-        "timestamp": pd.date_range("2023-01-01", periods=n, freq="min"),
-        "amount_ngn": amounts,
-        "is_fraud": is_fraud,
-        "customer_transaction_count_prior": np.random.poisson(10, n),
-        "customer_avg_amount_prior": np.random.lognormal(10, 1, n),
-        "customer_std_amount_prior": np.random.exponential(1000, n),
-        "customer_max_amount_prior": np.random.lognormal(11, 1.5, n),
-        "amount_ratio_to_avg": np.random.lognormal(0, 0.5, n),
-        "amount_zscore": np.random.normal(0, 1, n),
-        "merchant_transaction_count_prior": np.random.poisson(100, n),
-        "merchant_fraud_rate_prior": np.random.beta(1, 50, n),
-        "location_transaction_count_prior": np.random.poisson(500, n),
-        "location_fraud_rate_prior": np.random.beta(1, 30, n),
-        "device_transaction_count_prior": np.random.poisson(5, n),
-        "device_first_seen": np.random.choice([True, False], n, p=[0.3, 0.7]),
-        "transactions_last_10m": np.random.poisson(2, n),
-        "transactions_last_60m": np.random.poisson(5, n),
-        "transactions_last_1440m": np.random.poisson(20, n),
-        "hour_of_day": np.random.randint(0, 24, n),
-        "day_of_week": np.random.randint(0, 7, n),
-        "is_weekend": np.random.choice([0, 1], n, p=[0.7, 0.3]),
-    })
+    return pd.DataFrame(
+        {
+            "transaction_id": [f"T{i:06d}" for i in range(n)],
+            "timestamp": pd.date_range("2023-01-01", periods=n, freq="min"),
+            "amount_ngn": amounts,
+            "is_fraud": is_fraud,
+            "customer_transaction_count_prior": np.random.poisson(10, n),
+            "customer_avg_amount_prior": np.random.lognormal(10, 1, n),
+            "customer_std_amount_prior": np.random.exponential(1000, n),
+            "customer_max_amount_prior": np.random.lognormal(11, 1.5, n),
+            "amount_ratio_to_avg": np.random.lognormal(0, 0.5, n),
+            "amount_zscore": np.random.normal(0, 1, n),
+            "merchant_transaction_count_prior": np.random.poisson(100, n),
+            "merchant_fraud_rate_prior": np.random.beta(1, 50, n),
+            "location_transaction_count_prior": np.random.poisson(500, n),
+            "location_fraud_rate_prior": np.random.beta(1, 30, n),
+            "device_transaction_count_prior": np.random.poisson(5, n),
+            "device_first_seen": np.random.choice([True, False], n, p=[0.3, 0.7]),
+            "transactions_last_10m": np.random.poisson(2, n),
+            "transactions_last_60m": np.random.poisson(5, n),
+            "transactions_last_1440m": np.random.poisson(20, n),
+            "hour_of_day": np.random.randint(0, 24, n),
+            "day_of_week": np.random.randint(0, 7, n),
+            "is_weekend": np.random.choice([0, 1], n, p=[0.7, 0.3]),
+        }
+    )
 
 
 class TestFeaturePreparation:
@@ -123,7 +126,11 @@ class TestFeaturePreparation:
         transaction = {"transaction_id": "T001", "amount_ngn": 1000.0}
         features = prepare_features_from_transaction(transaction)
 
-        assert all(v == 0.0 for k, v in features.items() if k not in ("amount_ngn", "amount_ratio_to_avg"))
+        assert all(
+            v == 0.0
+            for k, v in features.items()
+            if k not in ("amount_ngn", "amount_ratio_to_avg")
+        )
 
     def test_feature_parity_between_dataframe_and_transaction(self):
         """Verify that DataFrame and transaction preparation produce the same features."""
@@ -144,7 +151,9 @@ class TestModelServing:
     def test_train_and_persist(self, tmp_path):
         """Test model training and persistence."""
         df = _make_sample_df()
-        artifact_path = train_and_persist_model(df, output_dir=str(tmp_path), model_name="random_forest")
+        artifact_path = train_and_persist_model(
+            df, output_dir=str(tmp_path), model_name="random_forest"
+        )
 
         assert artifact_path.exists()
         assert artifact_path.name == "random_forest.artifact.pkl"
@@ -192,7 +201,9 @@ class TestModelServing:
     def test_train_logistic_regression(self, tmp_path):
         """Test logistic regression training."""
         df = _make_sample_df()
-        artifact_path = train_and_persist_model(df, output_dir=str(tmp_path), model_name="logistic_regression")
+        artifact_path = train_and_persist_model(
+            df, output_dir=str(tmp_path), model_name="logistic_regression"
+        )
 
         artifact = load_model_artifact(artifact_path)
         assert artifact.scaler is not None
@@ -211,8 +222,11 @@ class TestSHAPExplainer:
         features["amount_zscore"] = 3.0
 
         import pandas as pd
+
         X = pd.DataFrame([features], columns=artifact.feature_columns)
-        explanations = explain_prediction(artifact.model, artifact.feature_columns, X, top_k=5)
+        explanations = explain_prediction(
+            artifact.model, artifact.feature_columns, X, top_k=5
+        )
 
         assert isinstance(explanations, list)
         assert len(explanations) <= 5
@@ -225,8 +239,18 @@ class TestSHAPExplainer:
     def test_format_explanation_for_api(self):
         """Test API formatting of explanations."""
         explanations = [
-            {"feature": "amount_zscore", "shap_value": 0.5, "direction": "increases_risk", "magnitude": 0.5},
-            {"feature": "device_first_seen_int", "shap_value": 0.3, "direction": "increases_risk", "magnitude": 0.3},
+            {
+                "feature": "amount_zscore",
+                "shap_value": 0.5,
+                "direction": "increases_risk",
+                "magnitude": 0.5,
+            },
+            {
+                "feature": "device_first_seen_int",
+                "shap_value": 0.3,
+                "direction": "increases_risk",
+                "magnitude": 0.3,
+            },
         ]
 
         factors = format_explanation_for_api(explanations)
@@ -243,6 +267,7 @@ class TestSHAPExplainer:
 
         features = {col: 1.0 for col in MODEL_FEATURES}
         import pandas as pd
+
         X = pd.DataFrame([features], columns=artifact.feature_columns)
 
         exp1 = explain_prediction(artifact.model, artifact.feature_columns, X, top_k=3)
@@ -296,7 +321,9 @@ class TestEndToEndScoring:
         }
 
         # 3. Prepare features
-        features = prepare_features_from_transaction(transaction, artifact.feature_columns)
+        features = prepare_features_from_transaction(
+            transaction, artifact.feature_columns
+        )
 
         # 4. Model prediction
         fraud_prob = predict_probability(artifact, features)
@@ -304,12 +331,16 @@ class TestEndToEndScoring:
 
         # 5. SHAP explanation
         import pandas as pd
+
         X = pd.DataFrame([features], columns=artifact.feature_columns)
-        explanations = explain_prediction(artifact.model, artifact.feature_columns, X, top_k=5)
+        explanations = explain_prediction(
+            artifact.model, artifact.feature_columns, X, top_k=5
+        )
         assert len(explanations) > 0
 
         # 6. Risk engine
         from fraudlens.risk.engine import RiskEngine
+
         engine = RiskEngine()
         risk_result = engine.assess_transaction(transaction, fraud_prob)
 
@@ -357,7 +388,12 @@ class TestEndToEndScoring:
         assert 0 <= data["fraud_probability"] <= 1
         assert 0 <= data["risk_score"] <= 100
         assert data["risk_level"] in ["low", "medium", "high", "critical"]
-        assert data["recommended_action"] in ["allow", "monitor", "review", "urgent_review"]
+        assert data["recommended_action"] in [
+            "allow",
+            "monitor",
+            "review",
+            "urgent_review",
+        ]
         assert isinstance(data["risk_factors"], list)
         assert data["model_version"].startswith("fraudlens-")
         assert data["risk_engine_version"] == "001"

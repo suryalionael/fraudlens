@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from typing import Any
 
 import psycopg2
@@ -252,6 +251,10 @@ class RiskScoreStore:
             """)
             rows = cur.fetchall()
             return {
-                row[0]: {"count": row[1], "total_amount": float(row[2]), "avg_score": float(row[3])}
+                row[0]: {
+                    "count": row[1],
+                    "total_amount": float(row[2]),
+                    "avg_score": float(row[3]),
+                }
                 for row in rows
             }

@@ -132,12 +132,14 @@ def _format_shap_values(
     # Take top_k
     explanations = []
     for name, val in pairs[:top_k]:
-        explanations.append({
-            "feature": name,
-            "shap_value": round(float(val), 6),
-            "direction": "increases_risk" if val > 0 else "decreases_risk",
-            "magnitude": round(float(abs(val)), 6),
-        })
+        explanations.append(
+            {
+                "feature": name,
+                "shap_value": round(float(val), 6),
+                "direction": "increases_risk" if val > 0 else "decreases_risk",
+                "magnitude": round(float(abs(val)), 6),
+            }
+        )
 
     return explanations
 

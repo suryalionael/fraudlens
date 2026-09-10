@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 
@@ -96,7 +95,9 @@ def prepare_features_from_transaction(
 
     for col in cols:
         if col == "device_first_seen_int":
-            val = transaction.get("device_first_seen", transaction.get("device_first_seen_int", 0))
+            val = transaction.get(
+                "device_first_seen", transaction.get("device_first_seen_int", 0)
+            )
             features[col] = float(int(val)) if val is not None else 0.0
         else:
             val = transaction.get(col, 0)

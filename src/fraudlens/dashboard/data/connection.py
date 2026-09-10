@@ -24,6 +24,7 @@ def get_connection():
     database_url = os.environ.get("DATABASE_URL", "")
     if database_url:
         from urllib.parse import urlparse
+
         parsed = urlparse(database_url)
         return psycopg2.connect(
             host=parsed.hostname or "localhost",
@@ -53,6 +54,7 @@ def query_df(sql: str, params: tuple | None = None):
         pandas DataFrame with query results.
     """
     import pandas as pd
+
     conn = get_connection()
     try:
         df = pd.read_sql(sql, conn, params=params)

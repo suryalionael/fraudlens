@@ -9,18 +9,19 @@ from __future__ import annotations
 import json
 import logging
 import pickle
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from fraudlens.features.preparation import MODEL_FEATURES, prepare_features_from_dataframe
+from fraudlens.features.preparation import (
+    prepare_features_from_dataframe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,6 @@ def train_and_persist_model(
         X_test_input = pd.DataFrame(
             scaler.transform(X_test), columns=X_test.columns, index=X_test.index
         )
-        n_neg = (y_train == 0).sum()
-        n_pos = (y_train == 1).sum()
         model = LogisticRegression(
             max_iter=1000,
             solver="lbfgs",
@@ -198,8 +197,7 @@ def load_model_artifact(artifact_path: str | Path) -> ModelArtifact:
     artifact_path = Path(artifact_path)
     if not artifact_path.exists():
         raise FileNotFoundError(
-            f"Model artifact not found: {artifact_path}. "
-            "Run model training first."
+            f"Model artifact not found: {artifact_path}. " "Run model training first."
         )
 
     with open(artifact_path, "rb") as f:
@@ -277,7 +275,12 @@ def predict_probability(
 def get_hyperparameters(model_name: str) -> dict[str, Any]:
     """Return default hyperparameters for a model."""
     if model_name == "logistic_regression":
-        return {"max_iter": 1000, "solver": "lbfgs", "C": 1.0, "class_weight": "balanced"}
+        return {
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,
+            "class_weight": "balanced",
+        }
     elif model_name == "random_forest":
         return {
             "n_estimators": 100,

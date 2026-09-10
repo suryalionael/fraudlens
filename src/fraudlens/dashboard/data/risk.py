@@ -23,7 +23,9 @@ def get_risk_kpi_summary() -> dict:
         "SELECT COUNT(*) FROM risk.transaction_scores WHERE recommended_action IN ('review', 'urgent_review')"
     )
 
-    high_risk_pct = (high_risk / total_scored * 100) if total_scored and total_scored > 0 else 0
+    high_risk_pct = (
+        (high_risk / total_scored * 100) if total_scored and total_scored > 0 else 0
+    )
 
     return {
         "total_scored": total_scored or 0,

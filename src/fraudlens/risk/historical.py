@@ -61,7 +61,8 @@ class HistoricalContextService:
         """
         conn = self.connect()
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT
                     COUNT(*) as transaction_count,
                     COALESCE(AVG(amount_ngn), 0) as avg_amount,
@@ -71,7 +72,9 @@ class HistoricalContextService:
                 FROM raw.transactions
                 WHERE sender_account = %s
                   AND timestamp < %s
-            """, (sender_account, as_of))
+            """,
+                (sender_account, as_of),
+            )
             row = cur.fetchone()
 
         count = row[0] or 0
@@ -104,7 +107,8 @@ class HistoricalContextService:
         """
         conn = self.connect()
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT
                     COUNT(CASE WHEN timestamp >= %s - interval '10 minutes'
                                AND timestamp < %s THEN 1 END) as last_10m,
@@ -114,12 +118,17 @@ class HistoricalContextService:
                                AND timestamp < %s THEN 1 END) as last_24h
                 FROM raw.transactions
                 WHERE sender_account = %s
-            """, (
-                as_of, as_of,
-                as_of, as_of,
-                as_of, as_of,
-                sender_account,
-            ))
+            """,
+                (
+                    as_of,
+                    as_of,
+                    as_of,
+                    as_of,
+                    as_of,
+                    as_of,
+                    sender_account,
+                ),
+            )
             row = cur.fetchone()
 
         return {
@@ -144,14 +153,17 @@ class HistoricalContextService:
         """
         conn = self.connect()
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT
                     COUNT(*) as transaction_count,
                     COUNT(CASE WHEN is_fraud THEN 1 END) as fraud_count
                 FROM raw.transactions
                 WHERE merchant_category = %s
                   AND timestamp < %s
-            """, (merchant_category, as_of))
+            """,
+                (merchant_category, as_of),
+            )
             row = cur.fetchone()
 
         count = row[0] or 0
@@ -178,14 +190,17 @@ class HistoricalContextService:
         """
         conn = self.connect()
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT
                     COUNT(*) as transaction_count,
                     COUNT(CASE WHEN is_fraud THEN 1 END) as fraud_count
                 FROM raw.transactions
                 WHERE location = %s
                   AND timestamp < %s
-            """, (location, as_of))
+            """,
+                (location, as_of),
+            )
             row = cur.fetchone()
 
         count = row[0] or 0
@@ -215,22 +230,28 @@ class HistoricalContextService:
         conn = self.connect()
         with conn.cursor() as cur:
             # Total device transactions before this time
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*)
                 FROM raw.transactions
                 WHERE device_hash = %s
                   AND timestamp < %s
-            """, (device_hash, as_of))
+            """,
+                (device_hash, as_of),
+            )
             device_count = cur.fetchone()[0] or 0
 
             # Device first seen by this sender
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*)
                 FROM raw.transactions
                 WHERE device_hash = %s
                   AND sender_account = %s
                   AND timestamp < %s
-            """, (device_hash, sender_account, as_of))
+            """,
+                (device_hash, sender_account, as_of),
+            )
             sender_device_count = cur.fetchone()[0] or 0
 
         return {

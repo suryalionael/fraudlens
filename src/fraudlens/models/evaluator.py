@@ -12,14 +12,13 @@ This module implements evaluation metrics for fraud detection models including:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     precision_recall_curve,
-    average_precision_score,
     precision_score,
     recall_score,
     f1_score,
@@ -119,7 +118,9 @@ class ModelEvaluator:
                 top_k_true = y_true[top_k_indices]
 
                 precision_at_k[k] = top_k_true.sum() / k
-                recall_at_k[k] = top_k_true.sum() / y_true.sum() if y_true.sum() > 0 else 0
+                recall_at_k[k] = (
+                    top_k_true.sum() / y_true.sum() if y_true.sum() > 0 else 0
+                )
 
         # Threshold analysis
         threshold_analysis = []
@@ -129,13 +130,15 @@ class ModelEvaluator:
             r = recall_score(y_true, y_pred, zero_division=0)
             f = f1_score(y_true, y_pred, zero_division=0)
             flagged = y_pred.sum()
-            threshold_analysis.append({
-                "threshold": round(t, 2),
-                "precision": round(p, 4),
-                "recall": round(r, 4),
-                "f1": round(f, 4),
-                "flagged_transactions": int(flagged),
-            })
+            threshold_analysis.append(
+                {
+                    "threshold": round(t, 2),
+                    "precision": round(p, 4),
+                    "recall": round(r, 4),
+                    "f1": round(f, 4),
+                    "flagged_transactions": int(flagged),
+                }
+            )
 
         result = EvaluationResult(
             model_name=model_name,
@@ -172,15 +175,17 @@ class ModelEvaluator:
 
         rows = []
         for name, result in self.results.items():
-            rows.append({
-                "model": name,
-                "pr_auc": result.pr_auc,
-                "roc_auc": result.roc_auc,
-                "precision": result.precision,
-                "recall": result.recall,
-                "f1": result.f1,
-                "optimal_threshold": result.optimal_threshold,
-            })
+            rows.append(
+                {
+                    "model": name,
+                    "pr_auc": result.pr_auc,
+                    "roc_auc": result.roc_auc,
+                    "precision": result.precision,
+                    "recall": result.recall,
+                    "f1": result.f1,
+                    "optimal_threshold": result.optimal_threshold,
+                }
+            )
 
         df = pd.DataFrame(rows)
         return df.sort_values("pr_auc", ascending=False)
@@ -205,10 +210,10 @@ class ModelEvaluator:
             lines.append(f"\n{name}:")
             lines.append(f"  PR-AUC: {result.pr_auc}")
             lines.append(f"  Optimal threshold: {result.optimal_threshold}")
-            lines.append(f"  Precision@K:")
+            lines.append("  Precision@K:")
             for k, v in result.precision_at_k.items():
                 lines.append(f"    Top {k}: {v:.4f}")
-            lines.append(f"  Recall@K:")
+            lines.append("  Recall@K:")
             for k, v in result.recall_at_k.items():
                 lines.append(f"    Top {k}: {v:.4f}")
 

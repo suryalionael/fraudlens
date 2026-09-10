@@ -35,11 +35,11 @@ EXPECTED_COLUMNS: list[str] = [
 # They are ingested faithfully for provenance but must not be used as-is
 # for modeling.  See data/dataset_metadata.yml for the leakage audit.
 UNTRUSTED_COLUMNS: list[str] = [
-    "new_device_transaction",        # leakage — 100% fraud correlation
-    "time_since_last_transaction",   # broken — 41 % negative values
-    "velocity_score",                # no predictive signal
-    "geo_anomaly_score",             # no predictive signal
-    "spending_deviation_score",      # very weak / no signal
+    "new_device_transaction",  # leakage — 100% fraud correlation
+    "time_since_last_transaction",  # broken — 41 % negative values
+    "velocity_score",  # no predictive signal
+    "geo_anomaly_score",  # no predictive signal
+    "spending_deviation_score",  # very weak / no signal
 ]
 
 

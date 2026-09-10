@@ -10,7 +10,9 @@ from fraudlens.dashboard.data.connection import query_df, query_scalar
 def get_kpi_summary() -> dict:
     """Get executive KPI summary from raw transactions."""
     total = query_scalar("SELECT COUNT(*) FROM raw.transactions")
-    fraud_count = query_scalar("SELECT COUNT(*) FROM raw.transactions WHERE is_fraud = true")
+    fraud_count = query_scalar(
+        "SELECT COUNT(*) FROM raw.transactions WHERE is_fraud = true"
+    )
     total_value = query_scalar("SELECT ROUND(SUM(amount_ngn), 2) FROM raw.transactions")
     fraud_value = query_scalar(
         "SELECT ROUND(SUM(amount_ngn), 2) FROM raw.transactions WHERE is_fraud = true"
@@ -51,7 +53,13 @@ def get_fraud_by_dimension(dimension: str) -> pd.DataFrame:
     Args:
         dimension: Column name (merchant_category, location, transaction_type, payment_channel).
     """
-    allowed = {"merchant_category", "location", "transaction_type", "payment_channel", "device_used"}
+    allowed = {
+        "merchant_category",
+        "location",
+        "transaction_type",
+        "payment_channel",
+        "device_used",
+    }
     if dimension not in allowed:
         raise ValueError(f"Dimension must be one of {allowed}")
 

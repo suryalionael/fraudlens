@@ -3,9 +3,8 @@
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
-from fraudlens.features.engineering import FeatureEngineer, FeatureConfig
+from fraudlens.features.engineering import FeatureEngineer
 from fraudlens.features.tester import FeatureTester
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -16,7 +15,9 @@ def load_sample_data() -> pd.DataFrame:
     """Load sample transaction data."""
     df = pd.read_csv(SAMPLE_CSV)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df["is_fraud"] = df["is_fraud"].map({"True": True, "False": False, "true": True, "false": False})
+    df["is_fraud"] = df["is_fraud"].map(
+        {"True": True, "False": False, "true": True, "false": False}
+    )
     return df
 
 
@@ -29,7 +30,7 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Check that new columns are added
         assert "hour_of_day" in result.columns
         assert "day_of_week" in result.columns
@@ -46,7 +47,7 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Check temporal features are valid
         assert result["hour_of_day"].between(0, 23).all()
         assert result["day_of_week"].between(0, 6).all()
@@ -56,9 +57,11 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Velocity features should be non-negative
-        velocity_cols = [c for c in result.columns if c.startswith("transactions_last_")]
+        velocity_cols = [
+            c for c in result.columns if c.startswith("transactions_last_")
+        ]
         for col in velocity_cols:
             assert (result[col] >= 0).all(), f"{col} has negative values"
 
@@ -66,10 +69,10 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Amount ratio should be positive
         assert (result["amount_ratio_to_avg"] >= 0).all()
-        
+
         # Z-score should be numeric
         assert pd.api.types.is_numeric_dtype(result["amount_zscore"])
 
@@ -77,10 +80,10 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Transaction count should be non-negative
         assert (result["customer_transaction_count_prior"] >= 0).all()
-        
+
         # Average amount should be non-negative
         assert (result["customer_avg_amount_prior"] >= 0).all()
 
@@ -88,10 +91,10 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Device transaction count should be non-negative
         assert (result["device_transaction_count_prior"] >= 0).all()
-        
+
         # First seen should be boolean
         assert result["device_first_seen"].dtype == bool
 
@@ -99,7 +102,7 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Fraud rate should be in [0, 1]
         assert (result["merchant_fraud_rate_prior"] >= 0).all()
         assert (result["merchant_fraud_rate_prior"] <= 1).all()
@@ -108,7 +111,7 @@ class TestFeatureEngineer:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         # Fraud rate should be in [0, 1]
         assert (result["location_fraud_rate_prior"] >= 0).all()
         assert (result["location_fraud_rate_prior"] <= 1).all()
@@ -119,10 +122,10 @@ class TestFeatureTester:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         tester = FeatureTester()
         results = tester.run_all_tests(result)
-        
+
         # All tests should pass
         assert all(r.passed for r in results), tester.get_summary()
 
@@ -130,32 +133,36 @@ class TestFeatureTester:
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         tester = FeatureTester()
         tester.test_no_future_leakage(result)
-        
-        leakage_test = [r for r in tester.results if r.test_name == "no_future_leakage"][0]
+
+        leakage_test = [
+            r for r in tester.results if r.test_name == "no_future_leakage"
+        ][0]
         assert leakage_test.passed, leakage_test.message
 
     def test_temporal_ordering(self):
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         tester = FeatureTester()
         tester.test_temporal_ordering(result)
-        
-        ordering_test = [r for r in tester.results if r.test_name == "temporal_ordering"][0]
+
+        ordering_test = [
+            r for r in tester.results if r.test_name == "temporal_ordering"
+        ][0]
         assert ordering_test.passed, ordering_test.message
 
     def test_get_summary(self):
         df = load_sample_data()
         engineer = FeatureEngineer()
         result = engineer.compute_features(df)
-        
+
         tester = FeatureTester()
         tester.run_all_tests(result)
         summary = tester.get_summary()
-        
+
         assert "Feature Test Summary" in summary
         assert "Total tests:" in summary

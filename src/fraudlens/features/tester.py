@@ -7,7 +7,6 @@ and without temporal leakage.
 from __future__ import annotations
 
 import pandas as pd
-import numpy as np
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,12 +64,16 @@ class FeatureTester:
                     passed = False
                     issues.append(f"Row {idx}: velocity count > prior transactions")
 
-        self.results.append(TestResult(
-            test_name="no_future_leakage",
-            passed=passed,
-            message="All features use only historical information" if passed else f"Leakage detected: {issues[:5]}",
-            details={"issues": issues[:10]} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="no_future_leakage",
+                passed=passed,
+                message="All features use only historical information"
+                if passed
+                else f"Leakage detected: {issues[:5]}",
+                details={"issues": issues[:10]} if issues else None,
+            )
+        )
 
     def test_temporal_ordering(self, df: pd.DataFrame) -> None:
         """Verify that data is sorted by timestamp."""
@@ -79,11 +82,15 @@ class FeatureTester:
         else:
             is_sorted = True
 
-        self.results.append(TestResult(
-            test_name="temporal_ordering",
-            passed=is_sorted,
-            message="Data is sorted by timestamp" if is_sorted else "Data is not sorted by timestamp",
-        ))
+        self.results.append(
+            TestResult(
+                test_name="temporal_ordering",
+                passed=is_sorted,
+                message="Data is sorted by timestamp"
+                if is_sorted
+                else "Data is not sorted by timestamp",
+            )
+        )
 
     def test_velocity_features(self, df: pd.DataFrame) -> None:
         """Test velocity features."""
@@ -103,12 +110,14 @@ class FeatureTester:
                     passed = False
                     issues.append(f"{col} has unusually high values: {df[col].max()}")
 
-        self.results.append(TestResult(
-            test_name="velocity_features",
-            passed=passed,
-            message="Velocity features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="velocity_features",
+                passed=passed,
+                message="Velocity features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def test_amount_features(self, df: pd.DataFrame) -> None:
         """Test amount features."""
@@ -133,12 +142,14 @@ class FeatureTester:
                 passed = False
                 issues.append("amount_ratio_to_avg has negative values")
 
-        self.results.append(TestResult(
-            test_name="amount_features",
-            passed=passed,
-            message="Amount features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="amount_features",
+                passed=passed,
+                message="Amount features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def test_customer_features(self, df: pd.DataFrame) -> None:
         """Test customer features."""
@@ -155,12 +166,14 @@ class FeatureTester:
                 passed = False
                 issues.append("customer_avg_amount_prior has negative values")
 
-        self.results.append(TestResult(
-            test_name="customer_features",
-            passed=passed,
-            message="Customer features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="customer_features",
+                passed=passed,
+                message="Customer features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def test_device_features(self, df: pd.DataFrame) -> None:
         """Test device features."""
@@ -177,12 +190,14 @@ class FeatureTester:
                 passed = False
                 issues.append("device_first_seen is not boolean")
 
-        self.results.append(TestResult(
-            test_name="device_features",
-            passed=passed,
-            message="Device features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="device_features",
+                passed=passed,
+                message="Device features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def test_merchant_features(self, df: pd.DataFrame) -> None:
         """Test merchant features."""
@@ -195,12 +210,14 @@ class FeatureTester:
                 passed = False
                 issues.append("merchant_fraud_rate_prior out of [0, 1] range")
 
-        self.results.append(TestResult(
-            test_name="merchant_features",
-            passed=passed,
-            message="Merchant features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="merchant_features",
+                passed=passed,
+                message="Merchant features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def test_location_features(self, df: pd.DataFrame) -> None:
         """Test location features."""
@@ -213,12 +230,14 @@ class FeatureTester:
                 passed = False
                 issues.append("location_fraud_rate_prior out of [0, 1] range")
 
-        self.results.append(TestResult(
-            test_name="location_features",
-            passed=passed,
-            message="Location features valid" if passed else f"Issues: {issues}",
-            details={"issues": issues} if issues else None,
-        ))
+        self.results.append(
+            TestResult(
+                test_name="location_features",
+                passed=passed,
+                message="Location features valid" if passed else f"Issues: {issues}",
+                details={"issues": issues} if issues else None,
+            )
+        )
 
     def get_summary(self) -> str:
         """Get a summary of all test results."""

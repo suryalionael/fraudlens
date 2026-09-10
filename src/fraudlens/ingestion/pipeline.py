@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fraudlens.ingestion.csv_reader import ReadResult, read_csv
+from fraudlens.ingestion.csv_reader import read_csv
 from fraudlens.ingestion.postgres_loader import DBConfig, PostgresLoader
 from fraudlens.ingestion.schema import validate_source_schema
 

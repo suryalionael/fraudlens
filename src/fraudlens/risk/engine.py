@@ -29,20 +29,24 @@ class RiskConfig:
     rule_weight: float = 0.3
 
     # Risk level thresholds
-    risk_level_thresholds: dict[str, tuple[int, int]] = field(default_factory=lambda: {
-        "low": (0, 29),
-        "medium": (30, 59),
-        "high": (60, 79),
-        "critical": (80, 100),
-    })
+    risk_level_thresholds: dict[str, tuple[int, int]] = field(
+        default_factory=lambda: {
+            "low": (0, 29),
+            "medium": (30, 59),
+            "high": (60, 79),
+            "critical": (80, 100),
+        }
+    )
 
     # Action thresholds
-    action_thresholds: dict[str, float] = field(default_factory=lambda: {
-        "allow": 0,
-        "monitor": 30,
-        "review": 60,
-        "urgent_review": 80,
-    })
+    action_thresholds: dict[str, float] = field(
+        default_factory=lambda: {
+            "allow": 0,
+            "monitor": 30,
+            "review": 60,
+            "urgent_review": 80,
+        }
+    )
 
 
 @dataclass
@@ -85,7 +89,9 @@ class RiskEngine:
         ml_score = fraud_probability * 100
 
         # Combine scores
-        combined = (self.config.ml_weight * ml_score) + (self.config.rule_weight * rule_score)
+        combined = (self.config.ml_weight * ml_score) + (
+            self.config.rule_weight * rule_score
+        )
 
         # Cap at 100
         return min(max(combined, 0), 100)
@@ -223,7 +229,9 @@ class RiskEngine:
             List of RiskResult objects.
         """
         if len(transactions) != len(fraud_probabilities):
-            raise ValueError("Number of transactions must match number of probabilities")
+            raise ValueError(
+                "Number of transactions must match number of probabilities"
+            )
 
         results = []
         for transaction, prob in zip(transactions, fraud_probabilities):
@@ -281,6 +289,8 @@ class RiskEngine:
                 action: actions.count(action)
                 for action in ["allow", "monitor", "review", "urgent_review"]
             },
-            "high_risk_count": sum(1 for l in levels if l in ["high", "critical"]),
+            "high_risk_count": sum(
+                1 for level in levels if level in ["high", "critical"]
+            ),
             "urgent_review_count": actions.count("urgent_review"),
         }

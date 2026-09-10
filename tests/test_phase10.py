@@ -1,15 +1,16 @@
 """Phase 10 tests — temporal leakage, scoring service, API integration."""
 
-import json
 import numpy as np
 import pandas as pd
 import pytest
-from datetime import datetime, timezone
 
-from fraudlens.features.preparation import MODEL_FEATURES, prepare_features_from_transaction
+from fraudlens.features.preparation import (
+    MODEL_FEATURES,
+    prepare_features_from_transaction,
+)
 from fraudlens.models.serving import train_and_persist_model, load_model_artifact
 from fraudlens.risk.historical import HistoricalContextService
-from fraudlens.risk.scoring import RealtimeScoringService, ScoringResult
+from fraudlens.risk.scoring import ScoringResult
 
 
 def _make_sample_df(n: int = 200, seed: int = 42) -> pd.DataFrame:
@@ -21,30 +22,32 @@ def _make_sample_df(n: int = 200, seed: int = 42) -> pd.DataFrame:
     amounts = np.random.lognormal(10, 1, n)
     amounts[is_fraud] = np.random.lognormal(11, 2, n_fraud)
 
-    return pd.DataFrame({
-        "transaction_id": [f"T{i:06d}" for i in range(n)],
-        "timestamp": pd.date_range("2023-01-01", periods=n, freq="min"),
-        "amount_ngn": amounts,
-        "is_fraud": is_fraud,
-        "customer_transaction_count_prior": np.random.poisson(10, n),
-        "customer_avg_amount_prior": np.random.lognormal(10, 1, n),
-        "customer_std_amount_prior": np.random.exponential(1000, n),
-        "customer_max_amount_prior": np.random.lognormal(11, 1.5, n),
-        "amount_ratio_to_avg": np.random.lognormal(0, 0.5, n),
-        "amount_zscore": np.random.normal(0, 1, n),
-        "merchant_transaction_count_prior": np.random.poisson(100, n),
-        "merchant_fraud_rate_prior": np.random.beta(1, 50, n),
-        "location_transaction_count_prior": np.random.poisson(500, n),
-        "location_fraud_rate_prior": np.random.beta(1, 30, n),
-        "device_transaction_count_prior": np.random.poisson(5, n),
-        "device_first_seen": np.random.choice([True, False], n, p=[0.3, 0.7]),
-        "transactions_last_10m": np.random.poisson(2, n),
-        "transactions_last_60m": np.random.poisson(5, n),
-        "transactions_last_1440m": np.random.poisson(20, n),
-        "hour_of_day": np.random.randint(0, 24, n),
-        "day_of_week": np.random.randint(0, 7, n),
-        "is_weekend": np.random.choice([0, 1], n, p=[0.7, 0.3]),
-    })
+    return pd.DataFrame(
+        {
+            "transaction_id": [f"T{i:06d}" for i in range(n)],
+            "timestamp": pd.date_range("2023-01-01", periods=n, freq="min"),
+            "amount_ngn": amounts,
+            "is_fraud": is_fraud,
+            "customer_transaction_count_prior": np.random.poisson(10, n),
+            "customer_avg_amount_prior": np.random.lognormal(10, 1, n),
+            "customer_std_amount_prior": np.random.exponential(1000, n),
+            "customer_max_amount_prior": np.random.lognormal(11, 1.5, n),
+            "amount_ratio_to_avg": np.random.lognormal(0, 0.5, n),
+            "amount_zscore": np.random.normal(0, 1, n),
+            "merchant_transaction_count_prior": np.random.poisson(100, n),
+            "merchant_fraud_rate_prior": np.random.beta(1, 50, n),
+            "location_transaction_count_prior": np.random.poisson(500, n),
+            "location_fraud_rate_prior": np.random.beta(1, 30, n),
+            "device_transaction_count_prior": np.random.poisson(5, n),
+            "device_first_seen": np.random.choice([True, False], n, p=[0.3, 0.7]),
+            "transactions_last_10m": np.random.poisson(2, n),
+            "transactions_last_60m": np.random.poisson(5, n),
+            "transactions_last_1440m": np.random.poisson(20, n),
+            "hour_of_day": np.random.randint(0, 24, n),
+            "day_of_week": np.random.randint(0, 7, n),
+            "is_weekend": np.random.choice([0, 1], n, p=[0.7, 0.3]),
+        }
+    )
 
 
 class TestTemporalLeakageProtection:
@@ -53,7 +56,6 @@ class TestTemporalLeakageProtection:
     def test_historical_context_uses_strict_cutoff(self):
         """Verify the SQL query uses < not <= for temporal cutoff."""
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         source = inspect.getsource(HistoricalContextService.get_customer_context)
         assert "timestamp < %s" in source
@@ -62,28 +64,24 @@ class TestTemporalLeakageProtection:
     def test_velocity_uses_strict_cutoff(self):
         """Verify velocity queries use strict < for temporal cutoff."""
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         source = inspect.getsource(HistoricalContextService.get_velocity_context)
         assert "timestamp < %s" in source
 
     def test_merchant_uses_strict_cutoff(self):
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         source = inspect.getsource(HistoricalContextService.get_merchant_context)
         assert "timestamp < %s" in source
 
     def test_location_uses_strict_cutoff(self):
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         source = inspect.getsource(HistoricalContextService.get_location_context)
         assert "timestamp < %s" in source
 
     def test_device_uses_strict_cutoff(self):
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         source = inspect.getsource(HistoricalContextService.get_device_context)
         assert "timestamp < %s" in source
@@ -95,7 +93,6 @@ class TestTemporalLeakageProtection:
         only transactions with timestamp < t are included.
         """
         import inspect
-        from fraudlens.risk.historical import HistoricalContextService
 
         # All methods use strict < which excludes the current timestamp
         for method_name in [
@@ -105,12 +102,10 @@ class TestTemporalLeakageProtection:
             "get_location_context",
             "get_device_context",
         ]:
-            source = inspect.getsource(
-                getattr(HistoricalContextService, method_name)
-            )
-            assert "timestamp < %s" in source, (
-                f"{method_name} does not use strict < temporal cutoff"
-            )
+            source = inspect.getsource(getattr(HistoricalContextService, method_name))
+            assert (
+                "timestamp < %s" in source
+            ), f"{method_name} does not use strict < temporal cutoff"
 
     def test_forbidden_fields_rejected_by_api(self):
         """Precomputed features from source dataset must be rejected."""
@@ -137,6 +132,7 @@ class TestTemporalLeakageProtection:
             }
 
             from fraudlens.api.app import TransactionRequest
+
             with pytest.raises(ValidationError):
                 TransactionRequest(**transaction)
 
@@ -147,7 +143,9 @@ class TestFeatureParity:
     def test_model_features_match_training(self):
         """MODEL_FEATURES must match what the model was trained on."""
         df = _make_sample_df()
-        artifact_path = train_and_persist_model(df, output_dir="/tmp/parity_test", model_name="random_forest")
+        artifact_path = train_and_persist_model(
+            df, output_dir="/tmp/parity_test", model_name="random_forest"
+        )
         artifact = load_model_artifact(artifact_path)
 
         assert artifact.feature_columns == MODEL_FEATURES
@@ -155,7 +153,9 @@ class TestFeatureParity:
     def test_inference_features_match_training(self):
         """prepare_features_from_transaction must produce same columns as training."""
         df = _make_sample_df()
-        artifact_path = train_and_persist_model(df, output_dir="/tmp/parity_test", model_name="random_forest")
+        artifact_path = train_and_persist_model(
+            df, output_dir="/tmp/parity_test", model_name="random_forest"
+        )
         artifact = load_model_artifact(artifact_path)
 
         transaction = {
@@ -165,7 +165,9 @@ class TestFeatureParity:
             "device_first_seen": True,
         }
 
-        features = prepare_features_from_transaction(transaction, artifact.feature_columns)
+        features = prepare_features_from_transaction(
+            transaction, artifact.feature_columns
+        )
         assert list(features.keys()) == artifact.feature_columns
 
     def test_model_features_do_not_include_target(self):
@@ -182,7 +184,9 @@ class TestFeatureParity:
             "spending_deviation_score",
         }
         for field in forbidden:
-            assert field not in MODEL_FEATURES, f"Forbidden field {field} found in MODEL_FEATURES"
+            assert (
+                field not in MODEL_FEATURES
+            ), f"Forbidden field {field} found in MODEL_FEATURES"
 
 
 class TestScoringService:
@@ -234,6 +238,7 @@ class TestModelInference:
         features["amount_ngn"] = 50000.0
 
         from fraudlens.models.serving import predict_probability
+
         prob = predict_probability(artifact, features)
 
         assert isinstance(prob, float)
@@ -264,6 +269,7 @@ class TestRiskEngine:
 
     def test_risk_score_range(self):
         from fraudlens.risk.engine import RiskEngine
+
         engine = RiskEngine()
 
         for prob in [0.0, 0.25, 0.5, 0.75, 1.0]:
@@ -272,6 +278,7 @@ class TestRiskEngine:
 
     def test_risk_level_mapping(self):
         from fraudlens.risk.engine import RiskEngine
+
         engine = RiskEngine()
 
         assert engine.assign_risk_level(10) == "low"
@@ -281,6 +288,7 @@ class TestRiskEngine:
 
     def test_action_mapping(self):
         from fraudlens.risk.engine import RiskEngine
+
         engine = RiskEngine()
 
         assert engine.assign_action(10) == "allow"
@@ -294,8 +302,8 @@ class TestPersistenceSchema:
 
     def test_risk_factors_stored_as_jsonb(self):
         """risk_factors should be stored as JSONB."""
-        import inspect
         from fraudlens.risk.storage import RISK_SCORES_DDL
+
         assert "JSONB" in RISK_SCORES_DDL
         assert "risk_factors" in RISK_SCORES_DDL
 

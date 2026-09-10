@@ -78,7 +78,8 @@ class RuleEngine:
                 "description": "First transaction from this sender",
                 "severity": "low",
                 "score_contribution": 10,
-                "condition": lambda t: t.get("customer_transaction_count_prior", 0) == 0,
+                "condition": lambda t: t.get("customer_transaction_count_prior", 0)
+                == 0,
             },
             {
                 "name": "high_frequency_sender",
@@ -104,13 +105,15 @@ class RuleEngine:
             try:
                 triggered = rule["condition"](transaction)
                 if triggered:
-                    signals.append(RuleSignal(
-                        rule=rule["name"],
-                        triggered=True,
-                        severity=rule["severity"],
-                        score_contribution=rule["score_contribution"],
-                        description=rule["description"],
-                    ))
+                    signals.append(
+                        RuleSignal(
+                            rule=rule["name"],
+                            triggered=True,
+                            severity=rule["severity"],
+                            score_contribution=rule["score_contribution"],
+                            description=rule["description"],
+                        )
+                    )
             except (KeyError, TypeError, ValueError):
                 # Skip rule if features are missing
                 continue

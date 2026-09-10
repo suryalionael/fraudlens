@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 
 from fraudlens.ingestion.schema import EXPECTED_COLUMNS, validate_source_schema
 

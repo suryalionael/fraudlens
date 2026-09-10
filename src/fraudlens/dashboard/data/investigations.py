@@ -28,7 +28,8 @@ def get_investigation_queue(
 
     where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-    return query_df(f"""
+    return query_df(
+        f"""
         SELECT
             transaction_id,
             timestamp,
@@ -48,7 +49,9 @@ def get_investigation_queue(
         {where_sql}
         ORDER BY risk_score DESC, timestamp DESC
         LIMIT %s
-    """, params=tuple(params + [limit]))
+    """,
+        params=tuple(params + [limit]),
+    )
 
 
 def get_investigation_stats() -> dict:

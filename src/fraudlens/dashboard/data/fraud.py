@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fraudlens.dashboard.data.connection import query_df, query_scalar
+from fraudlens.dashboard.data.connection import query_df
 
 
 def get_fraud_by_merchant() -> pd.DataFrame:

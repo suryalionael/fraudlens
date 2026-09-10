@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraudlens.models.trainer import ModelTrainer, ModelConfig, TrainResult
-from fraudlens.models.evaluator import ModelEvaluator, EvaluationResult
+from fraudlens.models.trainer import ModelTrainer
+from fraudlens.models.evaluator import ModelEvaluator
 
 
-def create_sample_data(n_samples: int = 1000, fraud_rate: float = 0.036) -> pd.DataFrame:
+def create_sample_data(
+    n_samples: int = 1000, fraud_rate: float = 0.036
+) -> pd.DataFrame:
     """Create sample transaction data for testing."""
     np.random.seed(42)
 
@@ -19,10 +21,12 @@ def create_sample_data(n_samples: int = 1000, fraud_rate: float = 0.036) -> pd.D
     data = {
         "transaction_id": [f"T{i:06d}" for i in range(n_samples)],
         "timestamp": pd.date_range("2023-01-01", periods=n_samples, freq="min"),
-        "amount_ngn": np.concatenate([
-            np.random.lognormal(10, 1.5, n_legit),
-            np.random.lognormal(11, 2, n_fraud),
-        ]),
+        "amount_ngn": np.concatenate(
+            [
+                np.random.lognormal(10, 1.5, n_legit),
+                np.random.lognormal(11, 2, n_fraud),
+            ]
+        ),
         "customer_transaction_count_prior": np.random.poisson(10, n_samples),
         "customer_avg_amount_prior": np.random.lognormal(10, 1, n_samples),
         "customer_std_amount_prior": np.random.exponential(1000, n_samples),
@@ -35,10 +39,12 @@ def create_sample_data(n_samples: int = 1000, fraud_rate: float = 0.036) -> pd.D
         "location_fraud_rate_prior": np.random.beta(1, 30, n_samples),
         "device_transaction_count_prior": np.random.poisson(5, n_samples),
         "device_first_seen": np.random.choice([True, False], n_samples, p=[0.3, 0.7]),
-        "is_fraud": np.concatenate([
-            np.zeros(n_legit, dtype=bool),
-            np.ones(n_fraud, dtype=bool),
-        ]),
+        "is_fraud": np.concatenate(
+            [
+                np.zeros(n_legit, dtype=bool),
+                np.ones(n_fraud, dtype=bool),
+            ]
+        ),
     }
 
     df = pd.DataFrame(data)
@@ -85,7 +91,9 @@ class TestModelTrainer:
             columns=X_test.columns,
         )
 
-        model, y_prob = trainer.train_logistic_regression(X_train_scaled, y_train, X_test_scaled)
+        model, y_prob = trainer.train_logistic_regression(
+            X_train_scaled, y_train, X_test_scaled
+        )
 
         assert model is not None
         assert len(y_prob) == len(X_test)

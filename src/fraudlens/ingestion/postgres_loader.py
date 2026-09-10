@@ -9,7 +9,6 @@ from typing import Optional
 
 import psycopg2
 
-from fraudlens.ingestion.schema import EXPECTED_COLUMNS
 
 # SQL for the raw transactions table.
 RAW_TRANSACTIONS_DDL = """

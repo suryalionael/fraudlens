@@ -45,26 +45,32 @@ class ModelConfig:
     class_weight: str = "balanced"
 
     # Model-specific parameters
-    logistic_regression_params: dict[str, Any] = field(default_factory=lambda: {
-        "max_iter": 1000,
-        "solver": "lbfgs",
-        "C": 1.0,
-    })
+    logistic_regression_params: dict[str, Any] = field(
+        default_factory=lambda: {
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,
+        }
+    )
 
-    random_forest_params: dict[str, Any] = field(default_factory=lambda: {
-        "n_estimators": 100,
-        "max_depth": 10,
-        "min_samples_split": 5,
-        "min_samples_leaf": 2,
-    })
+    random_forest_params: dict[str, Any] = field(
+        default_factory=lambda: {
+            "n_estimators": 100,
+            "max_depth": 10,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+        }
+    )
 
-    xgboost_params: dict[str, Any] = field(default_factory=lambda: {
-        "n_estimators": 100,
-        "max_depth": 6,
-        "learning_rate": 0.1,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-    })
+    xgboost_params: dict[str, Any] = field(
+        default_factory=lambda: {
+            "n_estimators": 100,
+            "max_depth": 6,
+            "learning_rate": 0.1,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+        }
+    )
 
 
 @dataclass
@@ -147,7 +153,8 @@ class ModelTrainer:
             y_test = y.iloc[split_idx:]
         else:
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
+                X,
+                y,
                 test_size=self.config.test_size,
                 random_state=self.config.random_state,
                 stratify=y,
@@ -276,49 +283,63 @@ class ModelTrainer:
         results = {}
 
         # Train Logistic Regression
-        lr_model, lr_prob = self.train_logistic_regression(X_train_scaled, y_train, X_test_scaled)
+        lr_model, lr_prob = self.train_logistic_regression(
+            X_train_scaled, y_train, X_test_scaled
+        )
         self.models["logistic_regression"] = lr_model
-        results["logistic_regression"] = (lr_model, lr_prob, TrainResult(
-            model_name="logistic_regression",
-            model_version=f"fraudlens-lr-v001",
-            training_timestamp=datetime.now().isoformat(),
-            hyperparameters=self.config.logistic_regression_params,
-            train_size=len(X_train),
-            test_size=len(X_test),
-            fraud_rate_train=y_train.mean(),
-            fraud_rate_test=y_test.mean(),
-            features_used=list(X_train.columns),
-        ))
+        results["logistic_regression"] = (
+            lr_model,
+            lr_prob,
+            TrainResult(
+                model_name="logistic_regression",
+                model_version="fraudlens-lr-v001",
+                training_timestamp=datetime.now().isoformat(),
+                hyperparameters=self.config.logistic_regression_params,
+                train_size=len(X_train),
+                test_size=len(X_test),
+                fraud_rate_train=y_train.mean(),
+                fraud_rate_test=y_test.mean(),
+                features_used=list(X_train.columns),
+            ),
+        )
 
         # Train Random Forest
         rf_model, rf_prob = self.train_random_forest(X_train, y_train, X_test)
         self.models["random_forest"] = rf_model
-        results["random_forest"] = (rf_model, rf_prob, TrainResult(
-            model_name="random_forest",
-            model_version=f"fraudlens-rf-v001",
-            training_timestamp=datetime.now().isoformat(),
-            hyperparameters=self.config.random_forest_params,
-            train_size=len(X_train),
-            test_size=len(X_test),
-            fraud_rate_train=y_train.mean(),
-            fraud_rate_test=y_test.mean(),
-            features_used=list(X_train.columns),
-        ))
+        results["random_forest"] = (
+            rf_model,
+            rf_prob,
+            TrainResult(
+                model_name="random_forest",
+                model_version="fraudlens-rf-v001",
+                training_timestamp=datetime.now().isoformat(),
+                hyperparameters=self.config.random_forest_params,
+                train_size=len(X_train),
+                test_size=len(X_test),
+                fraud_rate_train=y_train.mean(),
+                fraud_rate_test=y_test.mean(),
+                features_used=list(X_train.columns),
+            ),
+        )
 
         # Train XGBoost
         xgb_model, xgb_prob = self.train_xgboost(X_train, y_train, X_test)
         self.models["xgboost"] = xgb_model
-        results["xgboost"] = (xgb_model, xgb_prob, TrainResult(
-            model_name="xgboost",
-            model_version=f"fraudlens-xgb-v001",
-            training_timestamp=datetime.now().isoformat(),
-            hyperparameters=self.config.xgboost_params,
-            train_size=len(X_train),
-            test_size=len(X_test),
-            fraud_rate_train=y_train.mean(),
-            fraud_rate_test=y_test.mean(),
-            features_used=list(X_train.columns),
-        ))
+        results["xgboost"] = (
+            xgb_model,
+            xgb_prob,
+            TrainResult(
+                model_name="xgboost",
+                model_version="fraudlens-xgb-v001",
+                training_timestamp=datetime.now().isoformat(),
+                hyperparameters=self.config.xgboost_params,
+                train_size=len(X_train),
+                test_size=len(X_test),
+                fraud_rate_train=y_train.mean(),
+                fraud_rate_test=y_test.mean(),
+                features_used=list(X_train.columns),
+            ),
+        )
 
         self.results = {k: v[2] for k, v in results.items()}
         return results

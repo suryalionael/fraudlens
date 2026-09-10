@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
 from typing import Any
 
 import pandas as pd
@@ -34,7 +33,13 @@ def create_dashboard() -> Any:
     st.sidebar.header("Navigation")
     page = st.sidebar.radio(
         "Select Page",
-        ["Executive Overview", "Risk Monitoring", "Investigation Queue", "Fraud Analysis", "Model Performance"],
+        [
+            "Executive Overview",
+            "Risk Monitoring",
+            "Investigation Queue",
+            "Fraud Analysis",
+            "Model Performance",
+        ],
     )
 
     if not db_available:
@@ -60,6 +65,7 @@ def create_dashboard() -> Any:
 def _check_db_connection() -> bool:
     try:
         from fraudlens.dashboard.data.connection import get_connection
+
         conn = get_connection()
         conn.close()
         return True
@@ -79,6 +85,7 @@ def _parse_json_list(val):
 
 
 # Page 1: Executive Overview
+
 
 def _render_executive_overview(db_available: bool) -> None:
     import streamlit as st
@@ -147,6 +154,7 @@ def _render_executive_overview(db_available: bool) -> None:
 
 # Page 2: Risk Monitoring
 
+
 def _render_risk_monitoring(db_available: bool) -> None:
     import streamlit as st
 
@@ -158,14 +166,13 @@ def _render_risk_monitoring(db_available: bool) -> None:
 
     try:
         from fraudlens.dashboard.data.connection import query_scalar
+
         score_count = query_scalar("SELECT COUNT(*) FROM risk.transaction_scores")
     except Exception:
         score_count = 0
 
     if not score_count:
-        st.warning(
-            "No risk scores found. Run batch scoring first."
-        )
+        st.warning("No risk scores found. Run batch scoring first.")
         return
 
     from fraudlens.dashboard.data.risk import (
@@ -220,6 +227,7 @@ def _render_risk_monitoring(db_available: bool) -> None:
 
 # Page 3: Investigation Queue
 
+
 def _render_investigation_queue(db_available: bool) -> None:
     import streamlit as st
 
@@ -231,6 +239,7 @@ def _render_investigation_queue(db_available: bool) -> None:
 
     try:
         from fraudlens.dashboard.data.connection import query_scalar
+
         score_count = query_scalar("SELECT COUNT(*) FROM risk.transaction_scores")
     except Exception:
         score_count = 0
@@ -275,7 +284,9 @@ def _render_investigation_queue(db_available: bool) -> None:
             queue["risk_factors_display"] = queue["risk_factors"].apply(
                 lambda x: "; ".join(_parse_json_list(x)[:3]) if x else ""
             )
-            display_cols = [c for c in queue.columns if c not in ("risk_factors", "rule_signals")]
+            display_cols = [
+                c for c in queue.columns if c not in ("risk_factors", "rule_signals")
+            ]
             if "risk_factors_display" in queue.columns:
                 display_cols.append("risk_factors_display")
             st.dataframe(queue[display_cols], use_container_width=True, hide_index=True)
@@ -286,6 +297,7 @@ def _render_investigation_queue(db_available: bool) -> None:
 
 
 # Page 4: Fraud Analysis
+
 
 def _render_fraud_analysis(db_available: bool) -> None:
     import streamlit as st
@@ -301,39 +313,52 @@ def _render_fraud_analysis(db_available: bool) -> None:
         get_fraud_by_location,
         get_fraud_by_transaction_type,
         get_fraud_by_payment_channel,
-        get_fraud_by_device,
         get_fraud_volume_vs_rate,
     )
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Merchant", "Geography", "Transaction Type", "Payment Channel"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Merchant", "Geography", "Transaction Type", "Payment Channel"]
+    )
 
     with tab1:
         st.subheader("Fraud by Merchant Category")
         data = get_fraud_by_merchant()
         if not data.empty:
             st.dataframe(data, use_container_width=True, hide_index=True)
-            st.bar_chart(data.set_index("merchant_category")[["total_transactions", "fraud_count"]])
+            st.bar_chart(
+                data.set_index("merchant_category")[
+                    ["total_transactions", "fraud_count"]
+                ]
+            )
 
     with tab2:
         st.subheader("Fraud by Location")
         data = get_fraud_by_location()
         if not data.empty:
             st.dataframe(data, use_container_width=True, hide_index=True)
-            st.bar_chart(data.set_index("location")[["total_transactions", "fraud_count"]])
+            st.bar_chart(
+                data.set_index("location")[["total_transactions", "fraud_count"]]
+            )
 
     with tab3:
         st.subheader("Fraud by Transaction Type")
         data = get_fraud_by_transaction_type()
         if not data.empty:
             st.dataframe(data, use_container_width=True, hide_index=True)
-            st.bar_chart(data.set_index("transaction_type")[["total_transactions", "fraud_count"]])
+            st.bar_chart(
+                data.set_index("transaction_type")[
+                    ["total_transactions", "fraud_count"]
+                ]
+            )
 
     with tab4:
         st.subheader("Fraud by Payment Channel")
         data = get_fraud_by_payment_channel()
         if not data.empty:
             st.dataframe(data, use_container_width=True, hide_index=True)
-            st.bar_chart(data.set_index("payment_channel")[["total_transactions", "fraud_count"]])
+            st.bar_chart(
+                data.set_index("payment_channel")[["total_transactions", "fraud_count"]]
+            )
 
     st.divider()
     st.subheader("Fraud Volume vs Rate (by Merchant)")
@@ -344,6 +369,7 @@ def _render_fraud_analysis(db_available: bool) -> None:
 
 # Page 5: Model Performance
 
+
 def _render_model_performance() -> None:
     import streamlit as st
 
@@ -351,7 +377,9 @@ def _render_model_performance() -> None:
 
     model_dir = os.environ.get("FRAUDLENS_MODEL_DIR", "models")
     metadata_files = {
-        "Logistic Regression": os.path.join(model_dir, "logistic_regression.metadata.json"),
+        "Logistic Regression": os.path.join(
+            model_dir, "logistic_regression.metadata.json"
+        ),
         "Random Forest": os.path.join(model_dir, "random_forest.metadata.json"),
         "XGBoost": os.path.join(model_dir, "xgboost.metadata.json"),
     }
@@ -361,15 +389,17 @@ def _render_model_performance() -> None:
         if os.path.exists(path):
             with open(path) as f:
                 meta = json.load(f)
-            real_models.append({
-                "model": model_name,
-                **meta.get("evaluation", {}),
-                "model_version": meta.get("model_version", "unknown"),
-                "train_size": meta.get("train_size", 0),
-                "test_size": meta.get("test_size", 0),
-                "features": len(meta.get("feature_columns", [])),
-                "training_timestamp": meta.get("training_timestamp", "unknown"),
-            })
+            real_models.append(
+                {
+                    "model": model_name,
+                    **meta.get("evaluation", {}),
+                    "model_version": meta.get("model_version", "unknown"),
+                    "train_size": meta.get("train_size", 0),
+                    "test_size": meta.get("test_size", 0),
+                    "features": len(meta.get("feature_columns", [])),
+                    "training_timestamp": meta.get("training_timestamp", "unknown"),
+                }
+            )
 
     if real_models:
         st.subheader("Trained Model Metrics")
@@ -387,7 +417,9 @@ def _render_model_performance() -> None:
                 with col3:
                     st.metric("Features", f"{m.get('features', 0)}")
                 st.text(f"Trained: {m.get('training_timestamp', 'unknown')}")
-                st.text(f"Train size: {m.get('train_size', 0):,} | Test size: {m.get('test_size', 0):,}")
+                st.text(
+                    f"Train size: {m.get('train_size', 0):,} | Test size: {m.get('test_size', 0):,}"
+                )
     else:
         st.info(
             "No trained model artifacts found. "

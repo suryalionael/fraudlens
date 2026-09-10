@@ -82,7 +82,10 @@ class FeatureEngineer:
                     window_start = current_time - pd.Timedelta(minutes=window_minutes)
                     prior_indices = sender_idx[:i]
                     prior_timestamps = df.loc[prior_indices, "timestamp"]
-                    count = ((prior_timestamps >= window_start) & (prior_timestamps < current_time)).sum()
+                    count = (
+                        (prior_timestamps >= window_start)
+                        & (prior_timestamps < current_time)
+                    ).sum()
                     df.at[idx, col_name] = count
 
         return df
@@ -104,7 +107,9 @@ class FeatureEngineer:
                 prior_amounts = df.loc[prior_indices, "amount_ngn"]
                 if len(prior_amounts) > 0:
                     df.at[idx, "customer_avg_amount_prior"] = prior_amounts.mean()
-                    df.at[idx, "customer_std_amount_prior"] = prior_amounts.std() if len(prior_amounts) >= 2 else 0
+                    df.at[idx, "customer_std_amount_prior"] = (
+                        prior_amounts.std() if len(prior_amounts) >= 2 else 0
+                    )
                     df.at[idx, "customer_max_amount_prior"] = prior_amounts.max()
 
         # Amount ratio to average
@@ -126,7 +131,9 @@ class FeatureEngineer:
                 mean = prior_amounts.mean()
                 std = prior_amounts.std()
                 if std > 0:
-                    df.at[idx, "amount_zscore"] = (df.at[idx, "amount_ngn"] - mean) / std
+                    df.at[idx, "amount_zscore"] = (
+                        df.at[idx, "amount_ngn"] - mean
+                    ) / std
 
         return df
 
@@ -150,7 +157,9 @@ class FeatureEngineer:
                 df.at[idx, "customer_transaction_count_prior"] = len(prior_txns)
                 days_active = (current_time - prior_txns["timestamp"].min()).days + 1
                 df.at[idx, "customer_days_active"] = days_active
-                df.at[idx, "customer_transactions_per_day"] = len(prior_txns) / max(days_active, 1)
+                df.at[idx, "customer_transactions_per_day"] = len(prior_txns) / max(
+                    days_active, 1
+                )
 
         return df
 
@@ -173,7 +182,9 @@ class FeatureEngineer:
             current_device = df.at[idx, "device_hash"]
             current_sender = df.at[idx, "sender_account"]
             current_time = df.at[idx, "timestamp"]
-            prior_mask = (df["device_hash"] == current_device) & (df["timestamp"] < current_time)
+            prior_mask = (df["device_hash"] == current_device) & (
+                df["timestamp"] < current_time
+            )
             prior_sender_mask = prior_mask & (df["sender_account"] == current_sender)
             df.at[idx, "device_first_seen"] = not prior_sender_mask.any()
 
@@ -194,7 +205,9 @@ class FeatureEngineer:
                 prior_indices = merchant_idx[:i]
                 prior_txns = df.loc[prior_indices]
                 df.at[idx, "merchant_transaction_count_prior"] = len(prior_txns)
-                df.at[idx, "merchant_fraud_rate_prior"] = prior_txns["is_fraud"].sum() / len(prior_txns)
+                df.at[idx, "merchant_fraud_rate_prior"] = prior_txns[
+                    "is_fraud"
+                ].sum() / len(prior_txns)
 
         return df
 
@@ -213,6 +226,8 @@ class FeatureEngineer:
                 prior_indices = location_idx[:i]
                 prior_txns = df.loc[prior_indices]
                 df.at[idx, "location_transaction_count_prior"] = len(prior_txns)
-                df.at[idx, "location_fraud_rate_prior"] = prior_txns["is_fraud"].sum() / len(prior_txns)
+                df.at[idx, "location_fraud_rate_prior"] = prior_txns[
+                    "is_fraud"
+                ].sum() / len(prior_txns)
 
         return df

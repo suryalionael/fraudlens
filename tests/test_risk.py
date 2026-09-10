@@ -2,7 +2,7 @@
 
 import pytest
 
-from fraudlens.risk.engine import RiskEngine, RiskConfig, RiskResult
+from fraudlens.risk.engine import RiskEngine, RiskResult
 from fraudlens.risk.rules import RuleEngine, RuleSignal
 
 
@@ -148,7 +148,12 @@ class TestRiskEngine:
         assert result.transaction_id == "T001"
         assert 0 <= result.risk_score <= 100
         assert result.risk_level in ["low", "medium", "high", "critical"]
-        assert result.recommended_action in ["allow", "monitor", "review", "urgent_review"]
+        assert result.recommended_action in [
+            "allow",
+            "monitor",
+            "review",
+            "urgent_review",
+        ]
         assert len(result.risk_factors) > 0
         assert len(result.rule_signals) > 0
 
@@ -176,7 +181,9 @@ class TestRiskEngine:
     def test_get_investigation_queue(self):
         engine = RiskEngine()
         results = [
-            RiskResult("T001", 0.9, 85, "critical", 50, 90, ["factor1"], "urgent_review", []),
+            RiskResult(
+                "T001", 0.9, 85, "critical", 50, 90, ["factor1"], "urgent_review", []
+            ),
             RiskResult("T002", 0.1, 15, "low", 0, 10, [], "allow", []),
             RiskResult("T003", 0.7, 70, "high", 30, 70, ["factor2"], "review", []),
         ]
