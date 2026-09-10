@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraudlens.models.trainer import ModelTrainer
 from fraudlens.models.evaluator import ModelEvaluator
+from fraudlens.models.trainer import ModelTrainer
 
 
 def create_sample_data(
@@ -70,16 +70,16 @@ class TestModelTrainer:
         df = create_sample_data()
         trainer = ModelTrainer()
         X, y = trainer.prepare_features(df)
-        X_train, X_test, y_train, y_test = trainer.train_test_split(X, y)
+        X_train, X_test, y_train, _ = trainer.train_test_split(X, y)
 
         assert len(X_train) + len(X_test) == len(X)
-        assert len(y_train) + len(y_test) == len(y)
+        assert len(y_train) + len(_) == len(y)
 
     def test_train_logistic_regression(self):
         df = create_sample_data()
         trainer = ModelTrainer()
         X, y = trainer.prepare_features(df)
-        X_train, X_test, y_train, y_test = trainer.train_test_split(X, y)
+        X_train, X_test, y_train, _ = trainer.train_test_split(X, y)
 
         scaler = trainer.scaler
         X_train_scaled = pd.DataFrame(
@@ -103,7 +103,7 @@ class TestModelTrainer:
         df = create_sample_data()
         trainer = ModelTrainer()
         X, y = trainer.prepare_features(df)
-        X_train, X_test, y_train, y_test = trainer.train_test_split(X, y)
+        X_train, X_test, y_train, _ = trainer.train_test_split(X, y)
 
         model, y_prob = trainer.train_random_forest(X_train, y_train, X_test)
 
@@ -115,7 +115,7 @@ class TestModelTrainer:
         df = create_sample_data()
         trainer = ModelTrainer()
         X, y = trainer.prepare_features(df)
-        X_train, X_test, y_train, y_test = trainer.train_test_split(X, y)
+        X_train, X_test, y_train, _ = trainer.train_test_split(X, y)
 
         try:
             model, y_prob = trainer.train_xgboost(X_train, y_train, X_test)
@@ -139,7 +139,7 @@ class TestModelTrainer:
         df = create_sample_data()
         trainer = ModelTrainer()
         X, y = trainer.prepare_features(df)
-        X_train, X_test, y_train, y_test = trainer.train_test_split(X, y)
+        X_train, X_test, y_train, _ = trainer.train_test_split(X, y)
 
         model, _ = trainer.train_random_forest(X_train, y_train, X_test)
         path = trainer.save_model(model, "test_model", tmp_path)

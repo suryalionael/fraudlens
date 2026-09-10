@@ -137,9 +137,9 @@ class TestFeatureTester:
         tester = FeatureTester()
         tester.test_no_future_leakage(result)
 
-        leakage_test = [
+        leakage_test = next(
             r for r in tester.results if r.test_name == "no_future_leakage"
-        ][0]
+        )
         assert leakage_test.passed, leakage_test.message
 
     def test_temporal_ordering(self):
@@ -150,9 +150,9 @@ class TestFeatureTester:
         tester = FeatureTester()
         tester.test_temporal_ordering(result)
 
-        ordering_test = [
+        ordering_test = next(
             r for r in tester.results if r.test_name == "temporal_ordering"
-        ][0]
+        )
         assert ordering_test.passed, ordering_test.message
 
     def test_get_summary(self):

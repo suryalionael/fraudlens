@@ -68,7 +68,7 @@ def explain_prediction(
 
         return _format_shap_values(feature_names, shap_vals, top_k)
 
-    except Exception as e:
+    except (ValueError, TypeError, IndexError) as e:
         logger.warning("SHAP explanation failed: %s. Using fallback.", e)
         return _fallback_explanation(model, feature_names, X_explain, top_k)
 

@@ -5,10 +5,8 @@ from __future__ import annotations
 import io
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 import psycopg2
-
 
 # SQL for the raw transactions table.
 RAW_TRANSACTIONS_DDL = """
@@ -73,7 +71,7 @@ class DBConfig:
     password: str = ""
 
     @classmethod
-    def from_env(cls) -> "DBConfig":
+    def from_env(cls) -> DBConfig:
         url = os.environ.get("DATABASE_URL", "")
         if url:
             # Parse a simple postgresql:// URL
@@ -100,9 +98,9 @@ class DBConfig:
 class PostgresLoader:
     """Manages PostgreSQL raw schema and bulk data loading."""
 
-    def __init__(self, config: Optional[DBConfig] = None) -> None:
+    def __init__(self, config: DBConfig | None = None) -> None:
         self.config = config or DBConfig.from_env()
-        self._conn: Optional[psycopg2.extensions.connection] = None
+        self._conn: psycopg2.extensions.connection | None = None
 
     def connect(self) -> psycopg2.extensions.connection:
         if self._conn is None or self._conn.closed:
@@ -162,12 +160,12 @@ class PostgresLoader:
         self,
         run_id: int,
         *,
-        rows_read: Optional[int] = None,
-        rows_loaded: Optional[int] = None,
-        fraud_count: Optional[int] = None,
-        fraud_rate: Optional[float] = None,
-        status: Optional[str] = None,
-        notes: Optional[str] = None,
+        rows_read: int | None = None,
+        rows_loaded: int | None = None,
+        fraud_count: int | None = None,
+        fraud_rate: float | None = None,
+        status: str | None = None,
+        notes: str | None = None,
     ) -> None:
         """Update an ingestion run record."""
         conn = self.connect()

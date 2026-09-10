@@ -1,25 +1,26 @@
 """Tests for model serving, SHAP explainer, feature preparation, and end-to-end integration."""
 
 import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from fraudlens.features.preparation import (
     MODEL_FEATURES,
+    get_model_features,
     prepare_features_from_dataframe,
     prepare_features_from_transaction,
-    get_model_features,
-)
-from fraudlens.models.serving import (
-    ModelArtifact,
-    train_and_persist_model,
-    load_model_artifact,
-    predict_probability,
 )
 from fraudlens.models.explainer import (
     explain_prediction,
     format_explanation_for_api,
+)
+from fraudlens.models.serving import (
+    ModelArtifact,
+    load_model_artifact,
+    predict_probability,
+    train_and_persist_model,
 )
 
 
@@ -356,6 +357,7 @@ class TestEndToEndScoring:
     def test_end_to_end_via_api(self, trained_model_path):
         """Test complete scoring through the FastAPI endpoint."""
         from fastapi.testclient import TestClient
+
         from fraudlens.api.app import create_app
 
         app = create_app(model_path=str(trained_model_path))

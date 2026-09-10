@@ -25,7 +25,7 @@ def _get_test_db_config() -> DBConfig | None:
         )
         conn.close()
         return config
-    except Exception:
+    except (ImportError, OSError):
         return None
 
 

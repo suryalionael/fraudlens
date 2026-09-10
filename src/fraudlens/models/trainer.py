@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import pickle
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -293,7 +293,7 @@ class ModelTrainer:
             TrainResult(
                 model_name="logistic_regression",
                 model_version="fraudlens-lr-v001",
-                training_timestamp=datetime.now().isoformat(),
+                training_timestamp=datetime.now(tz=timezone.utc).isoformat(),
                 hyperparameters=self.config.logistic_regression_params,
                 train_size=len(X_train),
                 test_size=len(X_test),
@@ -312,7 +312,7 @@ class ModelTrainer:
             TrainResult(
                 model_name="random_forest",
                 model_version="fraudlens-rf-v001",
-                training_timestamp=datetime.now().isoformat(),
+                training_timestamp=datetime.now(tz=timezone.utc).isoformat(),
                 hyperparameters=self.config.random_forest_params,
                 train_size=len(X_train),
                 test_size=len(X_test),
@@ -331,7 +331,7 @@ class ModelTrainer:
             TrainResult(
                 model_name="xgboost",
                 model_version="fraudlens-xgb-v001",
-                training_timestamp=datetime.now().isoformat(),
+                training_timestamp=datetime.now(tz=timezone.utc).isoformat(),
                 hyperparameters=self.config.xgboost_params,
                 train_size=len(X_train),
                 test_size=len(X_test),

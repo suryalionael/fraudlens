@@ -13,7 +13,6 @@ from typing import Any
 
 import pandas as pd
 
-
 # Canonical feature list used by the model.
 # Training and inference MUST use exactly this set.
 MODEL_FEATURES: list[str] = [

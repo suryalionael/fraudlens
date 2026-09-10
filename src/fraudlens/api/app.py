@@ -146,9 +146,11 @@ class TransactionRequest(BaseModel):
     @field_validator("amount_ngn")
     @classmethod
     def validate_amount(cls, v: float) -> float:
-        if v != v:  # NaN check
+        import math
+
+        if math.isnan(v):
             raise ValueError("amount_ngn must not be NaN")
-        if v == float("inf") or v == float("-inf"):
+        if math.isinf(v):
             raise ValueError("amount_ngn must be finite")
         return v
 
@@ -252,7 +254,7 @@ def create_app(
             logger.info(
                 "Loaded model: %s from %s", artifact.model_version, resolved_path
             )
-        except Exception as e:
+        except (FileNotFoundError, ValueError, OSError) as e:
             logger.error("Failed to load model from %s: %s", resolved_path, e)
     else:
         logger.warning("Model artifact not found at %s.", resolved_path)
@@ -276,8 +278,8 @@ def create_app(
             conn = get_connection()
             conn.close()
             db_reachable = True
-        except Exception:
-            pass
+        except (ImportError, OSError):
+            logger.debug("Database not reachable for readiness check")
 
         ready = model_loaded and db_reachable
         return ReadyResponse(
@@ -395,11 +397,11 @@ def create_app(
 
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error("Scoring failed for %s: %s", transaction_id, e, exc_info=True)
+        except Exception as exc:
+            logger.exception("Scoring failed for %s", transaction_id)
             raise HTTPException(
                 status_code=500,
-                detail=f"Internal scoring error: {type(e).__name__}",
+                detail=f"Internal scoring error: {type(exc).__name__}",
             )
 
     return app

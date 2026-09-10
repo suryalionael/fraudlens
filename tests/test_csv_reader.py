@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from fraudlens.ingestion.csv_reader import iter_chunks, read_csv, compute_sha256
+from fraudlens.ingestion.csv_reader import compute_sha256, iter_chunks, read_csv
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE_CSV = FIXTURES / "sample_transactions.csv"
@@ -22,7 +22,7 @@ class TestIterChunks:
         chunks = list(iter_chunks(SAMPLE_CSV, chunk_size=2))
         # 5 rows, chunk_size=2 → 3 chunks (2+2+1)
         assert len(chunks) == 3
-        header, first_chunk = chunks[0]
+        _, first_chunk = chunks[0]
         assert len(first_chunk) == 2
 
 

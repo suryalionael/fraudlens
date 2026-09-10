@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from fraudlens.ingestion.schema import EXPECTED_COLUMNS, validate_source_schema
 
 FIXTURES = Path(__file__).parent / "fixtures"

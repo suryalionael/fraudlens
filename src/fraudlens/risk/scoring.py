@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -252,7 +252,7 @@ class RealtimeScoringService:
             "rule_signals": risk_result.rule_signals,
             "model_version": self.artifact.model_version,
             "risk_engine_version": "001",
-            "scored_at": datetime.now().isoformat(),
+            "scored_at": datetime.now(tz=timezone.utc).isoformat(),
         }
         self.risk_store.upsert_score(score)
 

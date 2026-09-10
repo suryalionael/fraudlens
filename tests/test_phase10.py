@@ -8,7 +8,7 @@ from fraudlens.features.preparation import (
     MODEL_FEATURES,
     prepare_features_from_transaction,
 )
-from fraudlens.models.serving import train_and_persist_model, load_model_artifact
+from fraudlens.models.serving import load_model_artifact, train_and_persist_model
 from fraudlens.risk.historical import HistoricalContextService
 from fraudlens.risk.scoring import ScoringResult
 
@@ -103,14 +103,15 @@ class TestTemporalLeakageProtection:
             "get_device_context",
         ]:
             source = inspect.getsource(getattr(HistoricalContextService, method_name))
-            assert (
-                "timestamp < %s" in source
-            ), f"{method_name} does not use strict < temporal cutoff"
+            assert "timestamp < %s" in source, (
+                f"{method_name} does not use strict < temporal cutoff"
+            )
 
     def test_forbidden_fields_rejected_by_api(self):
         """Precomputed features from source dataset must be rejected."""
-        from fraudlens.api.app import FORBIDDEN_FIELDS
         from pydantic import ValidationError
+
+        from fraudlens.api.app import FORBIDDEN_FIELDS
 
         for field_name in FORBIDDEN_FIELDS:
             transaction = {
@@ -184,9 +185,9 @@ class TestFeatureParity:
             "spending_deviation_score",
         }
         for field in forbidden:
-            assert (
-                field not in MODEL_FEATURES
-            ), f"Forbidden field {field} found in MODEL_FEATURES"
+            assert field not in MODEL_FEATURES, (
+                f"Forbidden field {field} found in MODEL_FEATURES"
+            )
 
 
 class TestScoringService:
@@ -257,11 +258,13 @@ class TestModelInference:
     def test_no_heuristic_in_production_path(self):
         """Verify the API does not contain heuristic fraud probability."""
         import inspect
+
         from fraudlens.api.app import create_app
 
         source = inspect.getsource(create_app)
         assert "_estimate_fraud_probability" not in source
-        assert "random" not in source.lower() or "random" in "random_forest"
+        # Verify no random probability generation in production path
+        assert "np.random" not in source
 
 
 class TestRiskEngine:
@@ -310,6 +313,7 @@ class TestPersistenceSchema:
     def test_upsertHandles_json_serialization(self):
         """Verify upsert correctly serializes list fields to JSON."""
         import inspect
+
         from fraudlens.risk.storage import RiskScoreStore
 
         source = inspect.getsource(RiskScoreStore.upsert_score)

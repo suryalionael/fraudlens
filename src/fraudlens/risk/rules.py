@@ -78,8 +78,9 @@ class RuleEngine:
                 "description": "First transaction from this sender",
                 "severity": "low",
                 "score_contribution": 10,
-                "condition": lambda t: t.get("customer_transaction_count_prior", 0)
-                == 0,
+                "condition": lambda t: (
+                    t.get("customer_transaction_count_prior", 0) == 0
+                ),
             },
             {
                 "name": "high_frequency_sender",

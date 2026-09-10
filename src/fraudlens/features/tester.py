@@ -6,9 +6,10 @@ and without temporal leakage.
 
 from __future__ import annotations
 
-import pandas as pd
 from dataclasses import dataclass
 from typing import Any
+
+import pandas as pd
 
 
 @dataclass
@@ -136,11 +137,12 @@ class FeatureTester:
                 passed = False
                 issues.append(f"amount_zscore has extreme values: {zscore_max}")
 
-        if "amount_ratio_to_avg" in df.columns:
-            # Check ratio is positive
-            if (df["amount_ratio_to_avg"] < 0).any():
-                passed = False
-                issues.append("amount_ratio_to_avg has negative values")
+        if (
+            "amount_ratio_to_avg" in df.columns
+            and (df["amount_ratio_to_avg"] < 0).any()
+        ):
+            passed = False
+            issues.append("amount_ratio_to_avg has negative values")
 
         self.results.append(
             TestResult(
@@ -156,15 +158,19 @@ class FeatureTester:
         passed = True
         issues = []
 
-        if "customer_transaction_count_prior" in df.columns:
-            if (df["customer_transaction_count_prior"] < 0).any():
-                passed = False
-                issues.append("customer_transaction_count_prior has negative values")
+        if (
+            "customer_transaction_count_prior" in df.columns
+            and (df["customer_transaction_count_prior"] < 0).any()
+        ):
+            passed = False
+            issues.append("customer_transaction_count_prior has negative values")
 
-        if "customer_avg_amount_prior" in df.columns:
-            if (df["customer_avg_amount_prior"] < 0).any():
-                passed = False
-                issues.append("customer_avg_amount_prior has negative values")
+        if (
+            "customer_avg_amount_prior" in df.columns
+            and (df["customer_avg_amount_prior"] < 0).any()
+        ):
+            passed = False
+            issues.append("customer_avg_amount_prior has negative values")
 
         self.results.append(
             TestResult(
@@ -180,15 +186,18 @@ class FeatureTester:
         passed = True
         issues = []
 
-        if "device_transaction_count_prior" in df.columns:
-            if (df["device_transaction_count_prior"] < 0).any():
-                passed = False
-                issues.append("device_transaction_count_prior has negative values")
+        if (
+            "device_transaction_count_prior" in df.columns
+            and (df["device_transaction_count_prior"] < 0).any()
+        ):
+            passed = False
+            issues.append("device_transaction_count_prior has negative values")
 
-        if "device_first_seen" in df.columns:
-            if not pd.api.types.is_bool_dtype(df["device_first_seen"]):
-                passed = False
-                issues.append("device_first_seen is not boolean")
+        if "device_first_seen" in df.columns and not pd.api.types.is_bool_dtype(
+            df["device_first_seen"]
+        ):
+            passed = False
+            issues.append("device_first_seen is not boolean")
 
         self.results.append(
             TestResult(

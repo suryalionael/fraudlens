@@ -10,7 +10,7 @@ Performance: uses vectorized pre-computation to avoid O(n²) per-row scanning.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -255,14 +255,16 @@ def batch_score_transactions(
 
     # Pre-compute ALL features vectorized (O(n log n))
     logger.info("Pre-computing features...")
-    precompute_start = datetime.now()
+    precompute_start = datetime.now(tz=timezone.utc)
     df = _precompute_features(df)
-    precompute_elapsed = (datetime.now() - precompute_start).total_seconds()
+    precompute_elapsed = (
+        datetime.now(tz=timezone.utc) - precompute_start
+    ).total_seconds()
     logger.info("Feature pre-computation took %.1fs", precompute_elapsed)
 
     # Score in batches
     total_scored = 0
-    start_time = datetime.now()
+    start_time = datetime.now(tz=timezone.utc)
     feature_columns = artifact.feature_columns
 
     for batch_start in range(0, len(df), batch_size):
@@ -325,11 +327,11 @@ def batch_score_transactions(
                     "rule_signals": risk_result.rule_signals,
                     "model_version": artifact.model_version,
                     "risk_engine_version": "001",
-                    "scored_at": datetime.now(),
+                    "scored_at": datetime.now(tz=timezone.utc),
                 }
                 scores.append(score)
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 logger.warning(
                     "Failed to score %s: %s", row.get("transaction_id", "?"), e
                 )
@@ -343,7 +345,7 @@ def batch_score_transactions(
         if total_scored % 10000 == 0:
             logger.info("Scored %d / %d transactions...", total_scored, len(df))
 
-    elapsed = (datetime.now() - start_time).total_seconds()
+    elapsed = (datetime.now(tz=timezone.utc) - start_time).total_seconds()
     store.close()
 
     result = {

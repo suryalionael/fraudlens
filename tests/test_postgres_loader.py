@@ -6,6 +6,7 @@ test schema to avoid interfering with other databases.
 
 from pathlib import Path
 
+import psycopg2
 import pytest
 
 from fraudlens.ingestion.postgres_loader import DBConfig, PostgresLoader
@@ -29,7 +30,7 @@ def _get_test_db_config() -> DBConfig | None:
         )
         conn.close()
         return config
-    except Exception:
+    except (ImportError, OSError):
         return None
 
 
@@ -51,7 +52,7 @@ def loader(db_available):
     # Cleanup: truncate test data
     try:
         ldr.truncate_transactions()
-    except Exception:
+    except (OSError, psycopg2.Error):
         pass
     ldr.close()
 

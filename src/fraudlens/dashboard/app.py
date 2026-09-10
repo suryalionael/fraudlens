@@ -11,6 +11,7 @@ import os
 from typing import Any
 
 import pandas as pd
+import psycopg2
 
 
 def create_dashboard() -> Any:
@@ -69,7 +70,7 @@ def _check_db_connection() -> bool:
         conn = get_connection()
         conn.close()
         return True
-    except Exception:
+    except (ImportError, OSError, psycopg2.Error):
         return False
 
 
@@ -97,9 +98,9 @@ def _render_executive_overview(db_available: bool) -> None:
         return
 
     from fraudlens.dashboard.data.executive import (
-        get_kpi_summary,
-        get_fraud_trend,
         get_fraud_by_dimension,
+        get_fraud_trend,
+        get_kpi_summary,
     )
 
     kpi = get_kpi_summary()
@@ -111,13 +112,13 @@ def _render_executive_overview(db_available: bool) -> None:
     with col3:
         st.metric("Fraud Rate", f"{kpi['fraud_rate']:.2f}%")
     with col4:
-        st.metric("Total Value", f"N{ kpi['total_value']:,.0f}")
+        st.metric("Total Value", f"N{kpi['total_value']:,.0f}")
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Fraudulent Value", f"N{ kpi['fraud_value']:,.0f}")
+        st.metric("Fraudulent Value", f"N{kpi['fraud_value']:,.0f}")
     with col2:
-        st.metric("Avg Transaction", f"N{ kpi['avg_amount']:,.0f}")
+        st.metric("Avg Transaction", f"N{kpi['avg_amount']:,.0f}")
 
     st.divider()
 
@@ -168,7 +169,7 @@ def _render_risk_monitoring(db_available: bool) -> None:
         from fraudlens.dashboard.data.connection import query_scalar
 
         score_count = query_scalar("SELECT COUNT(*) FROM risk.transaction_scores")
-    except Exception:
+    except (ImportError, OSError, psycopg2.Error):
         score_count = 0
 
     if not score_count:
@@ -176,10 +177,10 @@ def _render_risk_monitoring(db_available: bool) -> None:
         return
 
     from fraudlens.dashboard.data.risk import (
-        get_risk_kpi_summary,
-        get_risk_distribution,
-        get_risk_trend,
         get_risk_by_dimension,
+        get_risk_distribution,
+        get_risk_kpi_summary,
+        get_risk_trend,
     )
 
     kpi = get_risk_kpi_summary()
@@ -241,7 +242,7 @@ def _render_investigation_queue(db_available: bool) -> None:
         from fraudlens.dashboard.data.connection import query_scalar
 
         score_count = query_scalar("SELECT COUNT(*) FROM risk.transaction_scores")
-    except Exception:
+    except (ImportError, OSError, psycopg2.Error):
         score_count = 0
 
     if not score_count:
@@ -309,10 +310,10 @@ def _render_fraud_analysis(db_available: bool) -> None:
         return
 
     from fraudlens.dashboard.data.fraud import (
-        get_fraud_by_merchant,
         get_fraud_by_location,
-        get_fraud_by_transaction_type,
+        get_fraud_by_merchant,
         get_fraud_by_payment_channel,
+        get_fraud_by_transaction_type,
         get_fraud_volume_vs_rate,
     )
 

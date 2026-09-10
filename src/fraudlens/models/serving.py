@@ -10,7 +10,7 @@ import json
 import logging
 import pickle
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -110,9 +110,9 @@ def train_and_persist_model(
     # Evaluate
     from sklearn.metrics import (
         average_precision_score,
+        f1_score,
         precision_score,
         recall_score,
-        f1_score,
         roc_auc_score,
     )
 
@@ -139,7 +139,7 @@ def train_and_persist_model(
         model_name=model_name,
         model_version=model_version,
         feature_columns=feature_columns,
-        training_timestamp=datetime.now().isoformat(),
+        training_timestamp=datetime.now(tz=timezone.utc).isoformat(),
         hyperparameters=get_hyperparameters(model_name),
         evaluation=evaluation,
         train_size=len(y_train),
@@ -197,14 +197,14 @@ def load_model_artifact(artifact_path: str | Path) -> ModelArtifact:
     artifact_path = Path(artifact_path)
     if not artifact_path.exists():
         raise FileNotFoundError(
-            f"Model artifact not found: {artifact_path}. " "Run model training first."
+            f"Model artifact not found: {artifact_path}. Run model training first."
         )
 
     with open(artifact_path, "rb") as f:
-        artifact = pickle.load(f)  # noqa: S301
+        artifact = pickle.load(f)
 
     if not isinstance(artifact, ModelArtifact):
-        raise ValueError(f"Invalid artifact format in {artifact_path}")
+        raise TypeError(f"Invalid artifact format in {artifact_path}")
 
     return artifact
 
@@ -218,8 +218,9 @@ def _load_from_s3(s3_uri: str) -> ModelArtifact:
     Returns:
         ModelArtifact with model, scaler, and metadata.
     """
-    import boto3
     import tempfile
+
+    import boto3
 
     # Parse s3://bucket/key
     parts = s3_uri.replace("s3://", "").split("/", 1)
@@ -236,10 +237,10 @@ def _load_from_s3(s3_uri: str) -> ModelArtifact:
         s3.download_file(bucket, key, tmp.name)
 
         with open(tmp.name, "rb") as f:
-            artifact = pickle.load(f)  # noqa: S301
+            artifact = pickle.load(f)
 
     if not isinstance(artifact, ModelArtifact):
-        raise ValueError(f"Invalid artifact format in S3 object {s3_uri}")
+        raise TypeError(f"Invalid artifact format in S3 object {s3_uri}")
 
     logger.info("Loaded model from S3: %s", artifact.model_version)
     return artifact
