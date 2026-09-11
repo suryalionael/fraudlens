@@ -13,7 +13,7 @@ shap>=0.43
 # API
 fastapi>=0.104
 uvicorn>=0.24
-httpx>=0.24
+httpx2>=2.0
 
 # Dashboard
 streamlit>=1.28
