@@ -103,9 +103,9 @@ class TestTemporalLeakageProtection:
             "get_device_context",
         ]:
             source = inspect.getsource(getattr(HistoricalContextService, method_name))
-            assert (
-                "timestamp < %s" in source
-            ), f"{method_name} does not use strict < temporal cutoff"
+            assert "timestamp < %s" in source, (
+                f"{method_name} does not use strict < temporal cutoff"
+            )
 
     def test_forbidden_fields_rejected_by_api(self):
         """Precomputed features from source dataset must be rejected."""
@@ -185,9 +185,9 @@ class TestFeatureParity:
             "spending_deviation_score",
         }
         for field in forbidden:
-            assert (
-                field not in MODEL_FEATURES
-            ), f"Forbidden field {field} found in MODEL_FEATURES"
+            assert field not in MODEL_FEATURES, (
+                f"Forbidden field {field} found in MODEL_FEATURES"
+            )
 
 
 class TestScoringService:
