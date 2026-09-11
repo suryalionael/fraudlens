@@ -57,8 +57,8 @@ def trained_model_path(tmp_path_factory):
 
 
 @pytest.fixture
-def client_with_model(trained_model_path):
-    """Create a test client with a loaded model."""
+def client_with_model(trained_model_path, _db_initialized):
+    """Create a test client with a loaded model (database initialized)."""
     app = create_app(model_path=str(trained_model_path))
     return TestClient(app)
 

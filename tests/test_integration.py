@@ -354,7 +354,7 @@ class TestEndToEndScoring:
         all_factors = risk_result.risk_factors + shap_factors
         assert len(all_factors) > 0
 
-    def test_end_to_end_via_api(self, trained_model_path):
+    def test_end_to_end_via_api(self, trained_model_path, _db_initialized):
         """Test complete scoring through the FastAPI endpoint."""
         from fastapi.testclient import TestClient
 
